@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* ── TuxPanel Custom Theme ─────────────────────────────────────────── */
+
+:root {
+  --tux-primary: #60a5fa;     /* blue-400 */
+  --tux-accent: #34d399;      /* emerald-400 */
+  --tux-danger: #f87171;      /* red-400 */
+  --tux-warning: #fbbf24;     /* amber-400 */
+  --tux-surface: #111827;     /* gray-900 */
+  --tux-surface-2: #1f2937;   /* gray-800 */
+}
+
+/* Smooth scrollbar for terminal */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--tux-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
