@@ -5,6 +5,7 @@
 const { Server } = require('socket.io');
 const logger = require('../utils/logger');
 const { attachTerminalHandlers } = require('./terminal');
+const { authenticateSocket } = require('../middleware/auth');
 
 /**
  * @param {import('http').Server} httpServer
@@ -16,7 +17,14 @@ function initSocketIO(httpServer) {
 
   const io = new Server(httpServer, {
     cors: {
-      origin: allowedOrigins,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin)) {
+          return callback(null, true);
+        }
+        callback(new Error('CORS not allowed'));
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -24,6 +32,17 @@ function initSocketIO(httpServer) {
     maxHttpBufferSize: 1e6, // 1 MB
     pingTimeout: 20_000,
     pingInterval: 10_000,
+  });
+
+  // ── Authentication middleware for all namespaces ────────────────
+  io.use((socket, next) => {
+    const user = authenticateSocket(socket.handshake.headers.cookie);
+    if (!user) {
+      logger.warn(`Socket auth failed from ${socket.handshake.address}`);
+      return next(new Error('Authentication required'));
+    }
+    socket.user = user;
+    next();
   });
 
   // ── Namespaces ────────────────────────────────────────────────────

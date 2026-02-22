@@ -6,6 +6,7 @@
   "author": "JosephDoesLinux",
   "license": "MIT",
   "scripts": {
+    "predev": "fuser -k 5173/tcp 5174/tcp 3001/tcp 2>/dev/null; echo '✔ Ports cleared'",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",

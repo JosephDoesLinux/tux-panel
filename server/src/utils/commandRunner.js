@@ -45,7 +45,7 @@ const COMMAND_REGISTRY = {
   // ─── Phase 2: User & Share Management (stubs) ─────────────────
   userList:       { bin: '/usr/bin/getent',          defaultArgs: ['passwd'],               sudo: false },
   groupList:      { bin: '/usr/bin/getent',          defaultArgs: ['group'],                sudo: false },
-  smbStatus:      { bin: '/usr/bin/smbstatus',       defaultArgs: ['--json'],               sudo: true  },
+  smbStatus:      { bin: '/usr/bin/smbstatus',       defaultArgs: ['--json'],               sudo: false },
 
   // ─── Phase 2: Samba config test ───────────────────────────────
   testparm:       { bin: '/usr/bin/testparm',        defaultArgs: ['-s', '--suppress-prompt'], sudo: false },

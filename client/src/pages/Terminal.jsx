@@ -5,6 +5,32 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { io } from 'socket.io-client';
 import '@xterm/xterm/css/xterm.css';
 
+// Gruvbox dark palette for the terminal (always dark regardless of UI theme)
+const GRUVBOX_THEME = {
+  background: '#1d2021',
+  foreground: '#ebdbb2',
+  cursor: '#fabd2f',
+  cursorAccent: '#1d2021',
+  selectionBackground: '#504945',
+  selectionForeground: '#ebdbb2',
+  black: '#282828',
+  red: '#cc241d',
+  green: '#98971a',
+  yellow: '#d79921',
+  blue: '#458588',
+  magenta: '#b16286',
+  cyan: '#689d6a',
+  white: '#a89984',
+  brightBlack: '#928374',
+  brightRed: '#fb4934',
+  brightGreen: '#b8bb26',
+  brightYellow: '#fabd2f',
+  brightBlue: '#83a598',
+  brightMagenta: '#d3869b',
+  brightCyan: '#8ec07c',
+  brightWhite: '#ebdbb2',
+};
+
 export default function Terminal() {
   const termRef = useRef(null);
   const xtermRef = useRef(null);
@@ -17,12 +43,7 @@ export default function Terminal() {
       cursorBlink: true,
       fontSize: 14,
       fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-      theme: {
-        background: '#0a0a0a',
-        foreground: '#e5e7eb',
-        cursor: '#60a5fa',
-        selectionBackground: '#334155',
-      },
+      theme: GRUVBOX_THEME,
     });
 
     const fitAddon = new FitAddon();
@@ -72,12 +93,11 @@ export default function Terminal() {
   }, []);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Terminal</h1>
+    <div className="flex flex-col h-full">
+      <h1 className="text-2xl font-black uppercase tracking-tight mb-4 text-gb-fg1">Terminal</h1>
       <div
         ref={termRef}
-        className="w-full rounded-xl border border-gray-800 overflow-hidden"
-        style={{ height: 'calc(100vh - 140px)' }}
+        className="flex-1 min-h-0 w-full border-2 border-gb-bg2 overflow-hidden"
       />
     </div>
   );

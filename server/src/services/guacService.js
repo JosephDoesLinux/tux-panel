@@ -56,7 +56,7 @@ function initGuacamole(httpServer) {
           key: cryptKey,
         },
         log: {
-          level: process.env.NODE_ENV === 'production' ? 'ERRORS' : 'VERBOSE',
+          level: 'DEBUG',
         },
         // Default connection settings (can be overridden per-token)
         connectionDefaultSettings: {
@@ -107,29 +107,32 @@ function generateToken(params) {
     throw new Error('Guacamole service not initialised');
   }
 
-  const connectionData = {
-    connection: {
-      type: params.protocol || 'rdp',
-      settings: {
+// ... inside generateToken ...
+const connectionData = {
+  connection: {
+    type: params.protocol || 'rdp',
+settings: {
         hostname: params.hostname || '127.0.0.1',
         port: String(params.port || 3389),
-        // RDP-specific
-        ...(params.username && { username: params.username }),
-        ...(params.password && { password: params.password }),
-        ...(params.width && { width: String(params.width) }),
-        ...(params.height && { height: String(params.height) }),
-        ...(params.dpi && { dpi: String(params.dpi) }),
-        // Wayland/KDE krdpserver works well with these
-        'security': 'any',
-        'ignore-cert': true,
-        'resize-method': 'display-update',
-        'enable-font-smoothing': true,
-        'enable-wallpaper': true,
-        'enable-theming': true,
-        'disable-audio': false,
+        username: params.username,
+        password: params.password,
+        
+        // --- THE PLASMA 6 SPECIAL ---
+        'security': 'tls',                // Try 'tls' instead of 'nla'
+        'ignore-cert': 'true',            // Must stay true
+        'enable-graphics-pipeline': 'true', 
+        'force-lossless': 'true',         // Helps Wayland buffers stay synced
+        'disable-audio': 'false',
+        
+        // Handshake helpers
+        'client-name': 'TuxPanel-Web',
+        'enable-font-smoothing': 'true',
+        'width': String(params.width || 1280),
+        'height': String(params.height || 720),
+        'dpi': String(params.dpi || 96),
       },
-    },
-  };
+  },
+};
 
   // Encrypt using the same cipher + key that guacamole-lite will decrypt with
   const iv = crypto.randomBytes(16);
@@ -154,8 +157,16 @@ function isReady() {
   return guacServer !== null;
 }
 
+/**
+ * Get the underlying ws.WebSocketServer for manual upgrade handling.
+ */
+function getWebSocketServer() {
+  return guacServer?.webSocketServer || null;
+}
+
 module.exports = {
   initGuacamole,
   generateToken,
   isReady,
+  getWebSocketServer,
 };

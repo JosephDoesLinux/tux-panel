@@ -5,7 +5,9 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
+const { requireAuth } = require('./middleware/auth');
 const logger = require('./utils/logger');
 
 const app = express();
@@ -19,7 +21,17 @@ const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, same-origin)
+      if (!origin) return callback(null, true);
+      // Allow configured origins
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      // Allow any LAN origin during development (192.168.x.x, 10.x.x.x, etc.)
+      if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin)) {
+        return callback(null, true);
+      }
+      callback(new Error('CORS not allowed'));
+    },
     credentials: true,
   })
 );
@@ -37,6 +49,7 @@ app.use(
 // ── Body Parsers ──────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // ── Request Logging ───────────────────────────────────────────────────
 app.use((req, _res, next) => {
@@ -45,12 +58,13 @@ app.use((req, _res, next) => {
 });
 
 // ── API Routes ────────────────────────────────────────────────────────
-app.use('/api/health', require('./routes/health'));
-app.use('/api/system', require('./routes/system'));
-app.use('/api/rdp',    require('./routes/rdp'));
+app.use('/api/health', require('./routes/health'));      // Public — health check
+app.use('/api/auth',   require('./routes/auth'));        // Public — login/logout/session
+app.use('/api/system', requireAuth, require('./routes/system'));  // Protected
+app.use('/api/rdp',    requireAuth, require('./routes/rdp'));     // Protected
 // Phase 2
-// app.use('/api/users',   require('./routes/users'));
-// app.use('/api/shares',  require('./routes/shares'));
+// app.use('/api/users',   requireAuth, require('./routes/users'));
+// app.use('/api/shares',  requireAuth, require('./routes/shares'));
 
 // ── Catch-All 404 ────────────────────────────────────────────────────
 app.use((_req, res) => {

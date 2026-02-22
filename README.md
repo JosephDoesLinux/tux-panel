@@ -38,8 +38,8 @@ tux-panel/
 │   └── .env.example
 ├── scripts/                 # System-level setup scripts
 │   ├── install-deps.sh      # Fedora package installer
-│   ├── setup-sudoers.sh     # Least-privilege sudo rules
-│   └── setup-guacd.sh       # Guacamole Docker container
+│   ├── setup-guacd.sh       # Guacamole Docker container
+│   └── setup-rdp.sh         # RDP server detection & setup
 ├── docs/                    # Architecture & roadmap docs
 └── package.json             # Root workspace (concurrently)
 ```
@@ -56,16 +56,21 @@ cd tux-panel
 # 2 — System dependencies (Fedora)
 sudo bash scripts/install-deps.sh
 
-# 3 — Sudoers (for safe Node→system commands)
-sudo bash scripts/setup-sudoers.sh $USER
+# 3 — Create the tuxpanel group & add your user
+sudo groupadd tuxpanel
+sudo usermod -aG tuxpanel $USER
+# Log out and back in for group to take effect
 
-# 4 — Install Node packages
+# 4 — PAM service config
+echo -e 'auth       required     pam_unix.so\naccount    required     pam_unix.so' | sudo tee /etc/pam.d/tuxpanel
+
+# 5 — Install Node packages
 npm run install:all
 
-# 5 — Copy env
+# 6 — Copy env
 cp server/.env.example server/.env
 
-# 6 — Run dev servers (API on :3001, UI on :5173)
+# 7 — Run dev servers (API on :3001, UI on :5173)
 npm run dev
 ```
 

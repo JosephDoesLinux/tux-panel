@@ -49,12 +49,13 @@ function attachTerminalHandlers(socket) {
       env: { ...process.env, TERM: 'xterm-256color' },
     });
 
-    logger.info(`PTY spawned (pid ${ptyProcess.pid}) for socket ${socket.id}`);
+    const pid = ptyProcess.pid;
+    logger.info(`PTY spawned (pid ${pid}) for socket ${socket.id}`);
 
     ptyProcess.onData((data) => socket.emit('terminal:output', data));
 
     ptyProcess.onExit(({ exitCode }) => {
-      logger.info(`PTY ${ptyProcess.pid} exited with code ${exitCode}`);
+      logger.info(`PTY ${pid} exited with code ${exitCode}`);
       socket.emit('terminal:exit', { code: exitCode });
       ptyProcess = null;
     });

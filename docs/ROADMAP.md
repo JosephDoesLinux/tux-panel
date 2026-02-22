@@ -11,10 +11,11 @@
 - [x] Winston logging with file rotation
 
 ### 1.2 — Secure System Access
-- [x] Sudoers drop-in with least-privilege rules
 - [x] Fedora dependency installer script
-- [ ] JWT-based authentication (login flow)
-- [ ] Session management & token refresh
+- [x] PAM-based authentication (tuxpanel group)
+- [x] JWT sessions in httpOnly cookies (8 h expiry)
+- [x] Login / logout / session-check API
+- [x] React auth context with route guards
 - [ ] HTTPS / TLS configuration
 
 ### 1.3 — System Health Monitoring

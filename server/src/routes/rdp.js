@@ -71,20 +71,38 @@ router.post('/connect', async (req, res, next) => {
     }
 
     // Merge request body with detected defaults
+// Merge request body with detected defaults
     const params = {
       protocol: req.body.protocol || connection.provider.protocol,
       hostname: req.body.hostname || connection.provider.host,
       port: req.body.port || connection.provider.port,
-      username: req.body.username || undefined,
-      password: req.body.password || undefined,
+      username: req.body.username,
+      password: req.body.password,
+      
+      // --- CRITICAL FOR KDE PLASMA 6 ---
+      security: 'nla',              // krdp usually requires NLA
+      'ignore-cert': 'true',        // krdp uses self-signed certs by default
+      'enable-audio': 'true',       // Plasma 6 supports audio redirection
+      'enable-font-smoothing': 'true',
+      'enable-graphics-pipeline': 'true', // Better performance for Wayland
+      
+      // Display settings
       width: req.body.width || undefined,
       height: req.body.height || undefined,
       dpi: req.body.dpi || undefined,
     };
 
+    // krdpserver requires credentials — guacamole-lite cannot relay
+    // guacd's "required" instruction, so they must be baked into the token.
+    if (!params.username || !params.password) {
+      return res.status(400).json({
+        error: 'Username and password are required for RDP authentication.',
+      });
+    }
+
     const token = guacService.generateToken(params);
 
-    logger.info(`RDP token generated → ${params.protocol}://${params.hostname}:${params.port}`);
+    logger.info(`RDP token generated → ${params.protocol}://${params.hostname}:${params.port} (user=${params.username || '<none>'})`);
 
     res.json({
       token,

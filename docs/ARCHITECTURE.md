@@ -36,7 +36,7 @@
 │  └──────────────────────────┬────────────────────────────────────┘  │
 │                              │                                       │
 └──────────────────────────────┼───────────────────────────────────────┘
-                               │ sudo (least-privilege)
+                               │ execFile (no shell)
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Fedora Linux                                │
@@ -58,9 +58,9 @@
 1. **No shell execution** — All commands use `execFile()`, never `exec()`.
 2. **Allow-list** — Every binary must be registered in `commandRunner.js`.
 3. **Argument sanitisation** — Shell metacharacters are rejected.
-4. **Least-privilege sudo** — `/etc/sudoers.d/tuxpanel` grants NOPASSWD
-   only for specific binaries (useradd, smbstatus, systemctl start smb, etc.).
-5. **JWT auth** — API endpoints protected by token-based authentication.
+4. **PAM authentication** — Users authenticate with Linux credentials;
+   only members of the `tuxpanel` group may log in.
+5. **JWT auth** — Sessions stored in httpOnly cookies (8 h expiry).
 6. **Rate limiting** — Express rate-limit on all routes.
 7. **Helmet** — Security headers (CSP, HSTS, etc.).
 8. **SELinux** — Stays enforcing; targeted booleans set for Samba.
