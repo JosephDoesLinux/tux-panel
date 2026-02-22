@@ -1,9 +1,10 @@
 import { Outlet, NavLink } from 'react-router-dom';
-import { Monitor, TerminalSquare, HardDrive, Users, Settings } from 'lucide-react';
+import { Monitor, TerminalSquare, HardDrive, Users, Settings, MonitorPlay } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/', icon: Monitor, label: 'Dashboard' },
   { to: '/terminal', icon: TerminalSquare, label: 'Terminal' },
+  { to: '/rdp', icon: MonitorPlay, label: 'Remote Desktop' },
   // Phase 2
   // { to: '/users', icon: Users, label: 'Users' },
   // { to: '/shares', icon: HardDrive, label: 'Shares' },

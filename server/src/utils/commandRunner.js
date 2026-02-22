@@ -49,6 +49,10 @@ const COMMAND_REGISTRY = {
 
   // ─── Phase 2: Samba config test ───────────────────────────────
   testparm:       { bin: '/usr/bin/testparm',        defaultArgs: ['-s', '--suppress-prompt'], sudo: false },
+
+  // ─── Phase 3: Remote Desktop ──────────────────────────────────
+  ssListening:    { bin: '/usr/bin/ss',               defaultArgs: ['-tlnp'],                  sudo: false },
+  whichBin:       { bin: '/usr/bin/which',             defaultArgs: [],                         sudo: false },
 };
 
 /**

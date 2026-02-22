@@ -47,6 +47,7 @@ app.use((req, _res, next) => {
 // ── API Routes ────────────────────────────────────────────────────────
 app.use('/api/health', require('./routes/health'));
 app.use('/api/system', require('./routes/system'));
+app.use('/api/rdp',    require('./routes/rdp'));
 // Phase 2
 // app.use('/api/users',   require('./routes/users'));
 // app.use('/api/shares',  require('./routes/shares'));

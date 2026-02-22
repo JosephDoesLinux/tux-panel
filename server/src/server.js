@@ -9,6 +9,7 @@ require('dotenv').config();
 const http = require('http');
 const app = require('./app');
 const { initSocketIO } = require('./sockets');
+const { initGuacamole } = require('./services/guacService');
 const logger = require('./utils/logger');
 
 const PORT = parseInt(process.env.PORT, 10) || 3001;
@@ -16,6 +17,7 @@ const PORT = parseInt(process.env.PORT, 10) || 3001;
 // ── HTTP + WebSocket Server ───────────────────────────────────────────
 const server = http.createServer(app);
 initSocketIO(server);
+initGuacamole(server);
 
 // ── Graceful Shutdown ─────────────────────────────────────────────────
 function shutdown(signal) {
