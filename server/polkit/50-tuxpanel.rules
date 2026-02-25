@@ -47,12 +47,11 @@ polkit.addRule(function (action, subject) {
       "/usr/bin/chpasswd",
       "/usr/bin/smartctl",
       "/usr/bin/btrfs",
-      "/usr/bin/cat",
-      "/usr/bin/tee",
       "/usr/bin/mount",
       "/usr/bin/umount",
       "/usr/sbin/ausearch",
-      "/usr/bin/lastb"
+      "/usr/bin/lastb",
+      "/opt/tuxpanel/scripts/tuxpanel-edit-conf.sh"
     ];
     for (var i = 0; i < allowed.length; i++) {
       if (program === allowed[i]) {

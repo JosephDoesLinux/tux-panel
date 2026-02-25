@@ -21,11 +21,7 @@ const server = http.createServer(app);
 // IMPORTANT: Socket.io MUST attach first so its upgrade listener is registered.
 initSocketIO(server);
 
-// guacamole-lite's ws.WebSocketServer attaches its own 'upgrade' listener
-// to the HTTP server. The ws library aborts *all* WebSocket connections
-// whose path doesn't match (e.g. /socket.io/ requests get killed).
-// Fix: after init, remove ws's aggressive listener and replace with one
-// that simply ignores non-matching paths instead of aborting them.
+// Initialize Guacamole WebSocket server
 initGuacamole(server);
 
 const guacWss = getWebSocketServer();

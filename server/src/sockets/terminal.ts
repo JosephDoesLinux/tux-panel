@@ -41,7 +41,11 @@ function attachTerminalHandlers(socket: any) {
       ptyProcess.kill();
     }
 
-    ptyProcess = pty.spawn(DEFAULT_SHELL, [], {
+    const username = socket.user?.username || socket.user?.sub;
+    const bin = username ? '/usr/bin/su' : DEFAULT_SHELL;
+    const args = username ? ['-', username] : [];
+
+    ptyProcess = pty.spawn(bin, args, {
       name: 'xterm-256color',
       cols,
       rows,

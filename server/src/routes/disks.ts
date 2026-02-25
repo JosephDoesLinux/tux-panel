@@ -4,7 +4,9 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import fs from 'fs';
-import { run  } from '../utils/commandRunner';
+import { z } from 'zod';
+import validate from '../middleware/validate';
+import { run } from '../utils/commandRunner';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -59,14 +61,15 @@ router.get('/subvolumes', async (req: Request, res: Response, next: NextFunction
   }
 });
 
+const subvolSchema = z.object({
+  path: z.string().regex(/^\/[\w/.-]+$/, 'Valid subvolume path required'),
+});
+
 // ── POST /api/disks/subvolumes ───────────────────────────────────────
 // Create a btrfs subvolume
-router.post('/subvolumes', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/subvolumes', validate(subvolSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { path: subvolPath } = req.body;
-    if (!subvolPath || !/^\/[\w/.-]+$/.test(subvolPath)) {
-      return res.status(400).json({ error: 'Valid subvolume path required' });
-    }
     logger.info(`Creating btrfs subvolume: ${subvolPath}`);
     await run('btrfsSubvolCreateNew', [subvolPath]);
     res.status(201).json({ ok: true });
@@ -75,12 +78,9 @@ router.post('/subvolumes', async (req: Request, res: Response, next: NextFunctio
 
 // ── DELETE /api/disks/subvolumes ─────────────────────────────────────
 // Delete a btrfs subvolume
-router.delete('/subvolumes', async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/subvolumes', validate(subvolSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { path: subvolPath } = req.body;
-    if (!subvolPath || !/^\/[\w/.-]+$/.test(subvolPath)) {
-      return res.status(400).json({ error: 'Valid subvolume path required' });
-    }
     logger.warn(`Deleting btrfs subvolume: ${subvolPath}`);
     await run('btrfsSubvolDel', [subvolPath]);
     res.json({ ok: true });
@@ -262,7 +262,7 @@ router.post('/shares/smb', async (req: Request, res: Response, next: NextFunctio
       content = fs.readFileSync(smbConf, 'utf-8');
     } catch (err: any) {
       if (err.code === 'EACCES') {
-        const r = await run('catFile', [smbConf]);
+        const r = await run('editConf', ['read', smbConf]);
         content = r.stdout;
       } else throw err;
     }
@@ -274,7 +274,7 @@ router.post('/shares/smb', async (req: Request, res: Response, next: NextFunctio
     const block = `\n[${name}]\n\tpath = ${path}\n\tread only = ${readOnly ? 'yes' : 'no'}\n\tguest ok = ${guestOk ? 'yes' : 'no'}\n`;
     content += block;
     
-    await run('tee', [smbConf], { stdin: content });
+    await run('editConf', ['write', smbConf], { stdin: content });
     await run('systemctlAction', ['reload', 'smb.service']).catch(() => {});
     res.status(201).json({ ok: true });
   } catch (err) { next(err); }
@@ -292,7 +292,7 @@ router.delete('/shares/smb', async (req: Request, res: Response, next: NextFunct
       content = fs.readFileSync(smbConf, 'utf-8');
     } catch (err: any) {
       if (err.code === 'EACCES') {
-        const r = await run('catFile', [smbConf]);
+        const r = await run('editConf', ['read', smbConf]);
         content = r.stdout;
       } else throw err;
     }
@@ -306,7 +306,7 @@ router.delete('/shares/smb', async (req: Request, res: Response, next: NextFunct
     });
     
     content = newSections.map((s, i) => (i > 0 && s.trim() ? '[' + s : s)).join('');
-    await run('tee', [smbConf], { stdin: content });
+    await run('editConf', ['write', smbConf], { stdin: content });
     await run('systemctlAction', ['reload', 'smb.service']).catch(() => {});
     res.json({ ok: true });
   } catch (err) { next(err); }
@@ -324,7 +324,7 @@ router.post('/shares/nfs', async (req: Request, res: Response, next: NextFunctio
       content = fs.readFileSync(exportsFile, 'utf-8');
     } catch (err: any) {
       if (err.code === 'EACCES') {
-        const r = await run('catFile', [exportsFile]);
+        const r = await run('editConf', ['read', exportsFile]);
         content = r.stdout;
       } else if (err.code !== 'ENOENT') throw err;
     }
@@ -332,7 +332,7 @@ router.post('/shares/nfs', async (req: Request, res: Response, next: NextFunctio
     const line = `${path} ${clients}\n`;
     content += (content.endsWith('\n') || !content ? '' : '\n') + line;
     
-    await run('tee', [exportsFile], { stdin: content });
+    await run('editConf', ['write', exportsFile], { stdin: content });
     await run('exportfs', ['-ra']).catch(() => {});
     res.status(201).json({ ok: true });
   } catch (err) { next(err); }
@@ -350,7 +350,7 @@ router.delete('/shares/nfs', async (req: Request, res: Response, next: NextFunct
       content = fs.readFileSync(exportsFile, 'utf-8');
     } catch (err: any) {
       if (err.code === 'EACCES') {
-        const r = await run('catFile', [exportsFile]);
+        const r = await run('editConf', ['read', exportsFile]);
         content = r.stdout;
       } else throw err;
     }
@@ -358,7 +358,7 @@ router.delete('/shares/nfs', async (req: Request, res: Response, next: NextFunct
     const lines = content.split('\n');
     const newLines = lines.filter(l => !l.trim().startsWith(path + ' ') && l.trim() !== path);
     
-    await run('tee', [exportsFile], { stdin: newLines.join('\n') });
+    await run('editConf', ['write', exportsFile], { stdin: newLines.join('\n') });
     await run('exportfs', ['-ra']).catch(() => {});
     res.json({ ok: true });
   } catch (err) { next(err); }

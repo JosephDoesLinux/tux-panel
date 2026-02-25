@@ -21,6 +21,7 @@ import servicesRoutes from './routes/services';
 import containersRoutes from './routes/containers';
 import accountsRoutes from './routes/accounts';
 import diagnosticsRoutes from './routes/diagnostics';
+import aiRoutes from './routes/ai';
 
 const app = express();
 
@@ -87,6 +88,7 @@ app.use('/api/services',   requireAuth, servicesRoutes);   // Protected
 app.use('/api/containers', requireAuth, containersRoutes); // Protected
 app.use('/api/accounts',   requireAuth, accountsRoutes);   // Protected
 app.use('/api/diagnostics', requireAuth, diagnosticsRoutes); // Protected
+app.use('/api/ai',         requireAuth, aiRoutes);         // Protected
 
 // ── Catch-All 404 ────────────────────────────────────────────────────
 app.use((_req, res) => {

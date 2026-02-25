@@ -4,7 +4,9 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import fs from 'fs';
-import { run  } from '../utils/commandRunner';
+import { z } from 'zod';
+import validate from '../middleware/validate';
+import { run } from '../utils/commandRunner';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -69,24 +71,16 @@ router.get('/status/:unit', async (req: Request, res: Response, next: NextFuncti
   }
 });
 
+const actionSchema = z.object({
+  unit: z.string().regex(/^[a-zA-Z0-9@._:-]+$/, 'Invalid unit name'),
+  action: z.enum(['start', 'stop', 'restart', 'enable', 'disable', 'reload']),
+});
+
 // ── POST /api/services/action ────────────────────────────────────────
 // Start, stop, restart, enable, disable a systemd unit
-router.post('/action', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/action', validate(actionSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { unit, action } = req.body;
-
-    if (!unit || !action) {
-      return res.status(400).json({ error: 'unit and action are required' });
-    }
-
-    if (!/^[a-zA-Z0-9@._:-]+$/.test(unit)) {
-      return res.status(400).json({ error: 'Invalid unit name' });
-    }
-
-    const allowed = ['start', 'stop', 'restart', 'enable', 'disable', 'reload'];
-    if (!allowed.includes(action)) {
-      return res.status(400).json({ error: `Invalid action. Allowed: ${allowed.join(', ')}` });
-    }
 
     logger.warn(`Service action: ${action} ${unit}`);
     const result = await run('systemctlAction', [action, unit]);
@@ -155,23 +149,19 @@ router.get('/processes', async (_req: Request, res: Response, next: NextFunction
   }
 });
 
+const killSchema = z.object({
+  pid: z.union([z.string(), z.number()]).transform(v => parseInt(String(v), 10)).refine(v => !isNaN(v), 'Valid PID is required'),
+  signal: z.string().regex(/^[A-Z]+$/, 'Invalid signal').optional().default('TERM'),
+});
+
 // ── POST /api/services/kill ──────────────────────────────────────────
 // Kill a process by PID
-router.post('/kill', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/kill', validate(killSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { pid, signal } = req.body;
 
-    if (!pid || isNaN(parseInt(pid, 10))) {
-      return res.status(400).json({ error: 'Valid PID is required' });
-    }
-
-    const sig = signal || 'TERM';
-    if (!/^[A-Z]+$/.test(sig)) {
-      return res.status(400).json({ error: 'Invalid signal' });
-    }
-
-    logger.warn(`Killing process PID ${pid} with signal ${sig}`);
-    const result = await run('kill', [`-${sig}`, String(pid)]);
+    logger.warn(`Killing process PID ${pid} with signal ${signal}`);
+    const result = await run('kill', [`-${signal}`, String(pid)]);
     res.json({ ok: true, output: result.stdout });
   } catch (err) {
     next(err);
@@ -204,7 +194,7 @@ router.get('/config/:name', async (req: Request, res: Response, next: NextFuncti
       } catch {
         // Permission denied — fall back to catFile via commandRunner
         try {
-          const r = await run('catFile', [configPath]);
+          const r = await run('editConf', ['read', configPath]);
           content = r.stdout;
         } catch (e: any) {
           content = `# Unable to read ${configPath}: ${e.message}`;
@@ -231,9 +221,14 @@ router.get('/config/:name', async (req: Request, res: Response, next: NextFuncti
   } catch (err) { next(err); }
 });
 
+const configUpdateSchema = z.object({
+  content: z.string({ message: 'content (string) is required' }),
+  restart: z.boolean().optional(),
+});
+
 // ── PUT /api/services/config/:name ──────────────────────────────────
 // Write a service config file and optionally restart the service
-router.put('/config/:name', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/config/:name', validate(configUpdateSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const name = (req.params.name as string).toLowerCase();
     const cfg = (CONFIG_FILES as any)[name];
@@ -242,9 +237,6 @@ router.put('/config/:name', async (req: Request, res: Response, next: NextFuncti
     }
 
     const { content, restart } = req.body;
-    if (typeof content !== 'string') {
-      return res.status(400).json({ error: 'content (string) is required' });
-    }
 
     // Resolve path
     let configPath = cfg.path;
@@ -261,7 +253,7 @@ router.put('/config/:name', async (req: Request, res: Response, next: NextFuncti
     } catch (err: any) {
       if (err.code === 'EACCES') {
         // Fallback to sudo tee
-        await run('tee', [configPath], { stdin: content });
+        await run('editConf', ['write', configPath], { stdin: content });
       } else {
         throw err;
       }

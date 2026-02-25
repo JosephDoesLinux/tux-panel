@@ -45,7 +45,7 @@ function initGuacamole(httpServer: any) {
 
   try {
     guacServer = new GuacamoleLite(
-      // WebSocket server options — share the HTTP server, isolate path
+      // WebSocket server options — do not attach to HTTP server automatically
       { server: httpServer, path: '/guacamole' },
       // guacd connection
       { host: guacdHost, port: guacdPort },

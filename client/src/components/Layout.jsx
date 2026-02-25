@@ -4,6 +4,7 @@ import { Monitor, TerminalSquare, MonitorPlay, LogOut, User, Sun, Moon, Power, H
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { TerminalProvider } from '../contexts/TerminalContext';
+import AIChatbot from './AIChatbot';
 
 const NAV_ITEMS = [
   { to: '/', icon: Monitor, label: 'Dashboard' },
@@ -311,8 +312,9 @@ export default function Layout() {
         </aside>
 
         {/* ── Main Content ─────────────────────────────────────── */}
-        <main className="flex-1 overflow-auto bg-gb-bg0-hard p-6">
+        <main className="flex-1 overflow-auto bg-gb-bg0-hard p-6 relative">
           <Outlet />
+          <AIChatbot />
         </main>
       </div>
     </div>

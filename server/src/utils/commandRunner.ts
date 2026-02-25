@@ -77,11 +77,10 @@ const COMMAND_REGISTRY = {
   btrfsSubvolCreate: { bin: '/usr/bin/btrfs',        defaultArgs: ['subvolume', 'snapshot'], sudo: true },
   btrfsSubvolCreateNew: { bin: '/usr/bin/btrfs',     defaultArgs: ['subvolume', 'create'],   sudo: true },
   findmnt:        { bin: '/usr/bin/findmnt',         defaultArgs: ['-J'],                   sudo: false },
-  catFile:        { bin: '/usr/bin/cat',             defaultArgs: [],                       sudo: true },
   exportfs:       { bin: '/usr/bin/exportfs',        defaultArgs: ['-v'],                   sudo: false },
-  tee:            { bin: '/usr/bin/tee',             defaultArgs: [],                       sudo: true },
   mount:          { bin: '/usr/bin/mount',           defaultArgs: [],                       sudo: true },
   umount:         { bin: '/usr/bin/umount',          defaultArgs: [],                       sudo: true },
+  editConf:       { bin: '/opt/tuxpanel/scripts/tuxpanel-edit-conf.sh', defaultArgs: [],    sudo: true },
 
   // ─── Docker Container Management ──────────────────────────────
   dockerPs:       { bin: '/usr/bin/docker',          defaultArgs: ['ps', '-a', '--format', 'json'], sudo: false },
