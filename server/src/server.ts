@@ -5,14 +5,15 @@
  * and starts the real-time terminal namespace.
  */
 
-require('dotenv').config();
-const http = require('http');
-const app = require('./app');
-const { initSocketIO } = require('./sockets');
-const { initGuacamole, getWebSocketServer } = require('./services/guacService');
-const logger = require('./utils/logger');
+import dotenv from 'dotenv';
+dotenv.config();
+import http from 'http';
+import app from './app';
+import { initSocketIO  } from './sockets';
+import { initGuacamole, getWebSocketServer  } from './services/guacService';
+import logger from './utils/logger';
 
-const PORT = parseInt(process.env.PORT, 10) || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // ── HTTP + WebSocket Server ───────────────────────────────────────────
 const server = http.createServer(app);
@@ -35,9 +36,9 @@ if (guacWss) {
   }
   // Re-add a safe upgrade listener that only handles /guacamole
   server.on('upgrade', (req, socket, head) => {
-    const pathname = req.url.split('?')[0];
+    const pathname = req.url?.split('?')[0];
     if (pathname === '/guacamole') {
-      guacWss.handleUpgrade(req, socket, head, (ws) => {
+      guacWss.handleUpgrade(req, socket, head, (ws: any) => {
         guacWss.emit('connection', ws, req);
       });
     }
@@ -46,7 +47,7 @@ if (guacWss) {
 }
 
 // ── Graceful Shutdown ─────────────────────────────────────────────────
-function shutdown(signal) {
+function shutdown(signal: string) {
   logger.info(`Received ${signal}. Shutting down gracefully…`);
   server.close(() => {
     logger.info('HTTP server closed.');

@@ -2,17 +2,17 @@
  * /api/storage — Disk, partition, and Samba/NFS share management
  */
 
-const { Router } = require('express');
-const fs = require('fs');
-const path = require('path');
-const { run } = require('../utils/commandRunner');
-const logger = require('../utils/logger');
+import { Router, Request, Response, NextFunction } from 'express';
+import fs from 'fs';
+import path from 'path';
+import { run  } from '../utils/commandRunner';
+import logger from '../utils/logger';
 
 const router = Router();
 
 // ── GET /api/storage/disks ───────────────────────────────────────────
 // Returns block devices + partition info (lsblk JSON) and df output.
-router.get('/disks', async (_req, res, next) => {
+router.get('/disks', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const [lsblkRes, dfRes] = await Promise.all([
       run('lsblk'),
@@ -53,12 +53,12 @@ router.get('/disks', async (_req, res, next) => {
 
 // ── GET /api/storage/smart/:device ───────────────────────────────────
 // SMART health for a device (requires smartmontools)
-router.get('/smart/:device', async (req, res, next) => {
+router.get('/smart/:device', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const device = req.params.device.replace(/[^a-zA-Z0-9]/g, '');
+    const device = (req.params.device as string).replace(/[^a-zA-Z0-9]/g, '');
     const result = await run('smartctl', ['-H', `-d`, 'auto', `/dev/${device}`]);
     res.json({ device, output: result.stdout });
-  } catch (err) {
+  } catch (err: any) {
     // smartctl returns non-zero for many normal conditions
     if (err.stdout) {
       return res.json({ device: req.params.device, output: err.stdout });
@@ -69,10 +69,10 @@ router.get('/smart/:device', async (req, res, next) => {
 
 // ── GET /api/storage/samba/shares ────────────────────────────────────
 // Parse smb.conf and return share definitions
-router.get('/samba/shares', async (_req, res, next) => {
+router.get('/samba/shares', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const smbConf = '/etc/samba/smb.conf';
-    let shares = [];
+    let shares: any[] = [];
 
     if (fs.existsSync(smbConf)) {
       const content = fs.readFileSync(smbConf, 'utf-8');
@@ -96,7 +96,7 @@ router.get('/samba/shares', async (_req, res, next) => {
 
 // ── POST /api/storage/samba/shares ───────────────────────────────────
 // Add a new Samba share to smb.conf
-router.post('/samba/shares', async (req, res, next) => {
+router.post('/samba/shares', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, path: sharePath, comment, browseable, readOnly, validUsers, guestOk } = req.body;
 
@@ -137,7 +137,7 @@ router.post('/samba/shares', async (req, res, next) => {
     // Test config
     try {
       await run('testparm');
-    } catch (testErr) {
+    } catch (testErr: any) {
       logger.warn(`testparm warning after adding share: ${testErr.message}`);
     }
 
@@ -148,7 +148,7 @@ router.post('/samba/shares', async (req, res, next) => {
       // If reload fails, try restart
       try {
         await run('systemctlAction', ['restart', 'smb.service']);
-      } catch (e) {
+      } catch (e: any) {
         logger.warn(`Failed to reload samba: ${e.message}`);
       }
     }
@@ -161,7 +161,7 @@ router.post('/samba/shares', async (req, res, next) => {
 });
 
 // ── DELETE /api/storage/samba/shares/:name ────────────────────────────
-router.delete('/samba/shares/:name', async (req, res, next) => {
+router.delete('/samba/shares/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const shareName = req.params.name;
     const smbConf = '/etc/samba/smb.conf';
@@ -171,7 +171,7 @@ router.delete('/samba/shares/:name', async (req, res, next) => {
     }
 
     let content = fs.readFileSync(smbConf, 'utf-8');
-    const regex = new RegExp(`\\n?\\[${escapeRegex(shareName)}\\][^\\[]*`, 'i');
+    const regex = new RegExp(`\\n?\\[${escapeRegex(shareName as string)}\\][^\\[]*`, 'i');
     const newContent = content.replace(regex, '');
 
     if (newContent === content) {
@@ -186,7 +186,7 @@ router.delete('/samba/shares/:name', async (req, res, next) => {
     } catch {
       try {
         await run('systemctlAction', ['restart', 'smb.service']);
-      } catch (e) {
+      } catch (e: any) {
         logger.warn(`Failed to reload samba: ${e.message}`);
       }
     }
@@ -200,7 +200,7 @@ router.delete('/samba/shares/:name', async (req, res, next) => {
 
 // ── GET /api/storage/samba/status ────────────────────────────────────
 // Active connections via smbstatus
-router.get('/samba/status', async (_req, res, next) => {
+router.get('/samba/status', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('smbStatus');
     try {
@@ -216,7 +216,7 @@ router.get('/samba/status', async (_req, res, next) => {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function parseSmbConf(content) {
+function parseSmbConf(content: string) {
   const shares = [];
   const sections = content.split(/^\[/m);
 
@@ -229,7 +229,7 @@ function parseSmbConf(content) {
     // Skip global/homes/printers
     if (['global', 'homes', 'printers', 'print$'].includes(name.toLowerCase())) continue;
 
-    const props = {};
+    const props: any = {};
     const lines = section.split('\n').slice(1);
     for (const line of lines) {
       const match = line.match(/^\s+(\S[^=]*)=\s*(.*)/);
@@ -252,8 +252,8 @@ function parseSmbConf(content) {
   return shares;
 }
 
-function escapeRegex(str) {
+function escapeRegex(str: string) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-module.exports = router;
+export default router;

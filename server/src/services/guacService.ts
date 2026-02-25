@@ -10,25 +10,25 @@
  *   4. guacamole-lite decrypts token, connects to guacd, proxies session
  */
 
-const crypto = require('crypto');
-const logger = require('../utils/logger');
+import crypto from 'crypto';
+import logger from '../utils/logger';
 
 const CIPHER = 'AES-256-CBC';
 
 // Key MUST be exactly 32 bytes for AES-256
-function deriveKey(secret) {
+function deriveKey(secret: string) {
   return crypto.createHash('sha256').update(secret).digest();
 }
 
-let guacServer = null;
-let cryptKey = null;
+let guacServer: any = null;
+let cryptKey: any = null;
 
 /**
  * Initialise guacamole-lite on the given HTTP server.
  *
  * @param {import('http').Server} httpServer
  */
-function initGuacamole(httpServer) {
+function initGuacamole(httpServer: any) {
   let GuacamoleLite;
   try {
     GuacamoleLite = require('guacamole-lite');
@@ -41,7 +41,7 @@ function initGuacamole(httpServer) {
   cryptKey = deriveKey(secret);
 
   const guacdHost = process.env.GUACD_HOST || '127.0.0.1';
-  const guacdPort = parseInt(process.env.GUACD_PORT, 10) || 4822;
+  const guacdPort = parseInt(process.env.GUACD_PORT || '4822', 10);
 
   try {
     guacServer = new GuacamoleLite(
@@ -82,7 +82,7 @@ function initGuacamole(httpServer) {
 
     logger.info(`Guacamole proxy initialised (guacd @ ${guacdHost}:${guacdPort}, ws path: /guacamole)`);
     return guacServer;
-  } catch (err) {
+  } catch (err: any) {
     logger.error(`Failed to initialise guacamole-lite: ${err.message}`);
     return null;
   }
@@ -102,7 +102,7 @@ function initGuacamole(httpServer) {
  * @param {number} [params.dpi]
  * @returns {string} Base64-encoded encrypted token
  */
-function generateToken(params) {
+function generateToken(params: any) {
   if (!cryptKey) {
     throw new Error('Guacamole service not initialised');
   }
@@ -158,9 +158,9 @@ function getWebSocketServer() {
   return guacServer?.webSocketServer || null;
 }
 
-module.exports = {
+export { 
   initGuacamole,
   generateToken,
   isReady,
   getWebSocketServer,
-};
+ };

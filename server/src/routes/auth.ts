@@ -6,16 +6,34 @@
  * GET  /api/auth/session  — Check current session (returns user info or 401)
  */
 
-const { Router } = require('express');
-const { authenticate, signToken, verifyToken, removePassword } = require('../services/authService');
-const { requireAuth } = require('../middleware/auth');
-const logger = require('../utils/logger');
+import { Router, Request, Response, NextFunction } from 'express';
+import rateLimit from 'express-rate-limit';
+import { z  } from 'zod';
+import { authenticate, signToken, verifyToken  } from '../services/authService';
+import { requireAuth  } from '../middleware/auth';
+import validate from '../middleware/validate';
+import logger from '../utils/logger';
 
 const router = Router();
 
+// Strict rate limiting for login to prevent brute-force attacks
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login requests per `window`
+  message: { error: 'Too many login attempts from this IP, please try again after 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Zod schema for login
+const loginSchema = z.object({
+  username: z.string().min(1, 'Username is required').regex(/^[a-z_][a-z0-9_-]{0,31}$/, 'Invalid username format'),
+  password: z.string().min(1, 'Password is required'),
+});
+
 // Cookie options
 const COOKIE_NAME = 'tuxpanel_session';
-function cookieOptions(req) {
+function cookieOptions(req: Request): any {
   const isProd = process.env.NODE_ENV === 'production';
   return {
     httpOnly: true,                          // Not accessible from JS (XSS protection)
@@ -30,12 +48,8 @@ function cookieOptions(req) {
  * POST /api/auth/login
  * Body: { username, password }
  */
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, validate(loginSchema), async (req: Request, res: Response) => {
   const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required' });
-  }
 
   const result = await authenticate(username, password);
 
@@ -47,14 +61,14 @@ router.post('/login', async (req, res) => {
   }
 
   // Sign JWT and set as httpOnly cookie
-  const token = signToken(result.user);
+  const token = signToken(result.user as any);
 
   res.cookie(COOKIE_NAME, token, cookieOptions(req));
 
   res.json({
     user: {
-      username: result.user.username,
-      groups: result.user.groups,
+      username: result.user?.username,
+      groups: result.user?.groups,
     },
   });
 });
@@ -62,14 +76,7 @@ router.post('/login', async (req, res) => {
 /**
  * POST /api/auth/logout
  */
-router.post('/logout', (req, res) => {
-  const token = req.cookies?.tuxpanel_session;
-  if (token) {
-    const payload = verifyToken(token);
-    if (payload?.sub) {
-      removePassword(payload.sub);
-    }
-  }
+router.post('/logout', (req: Request, res: Response) => {
   res.clearCookie(COOKIE_NAME, { path: '/' });
   res.json({ message: 'Logged out' });
 });
@@ -78,13 +85,13 @@ router.post('/logout', (req, res) => {
  * GET /api/auth/session
  * Returns current user info if authenticated, 401 otherwise.
  */
-router.get('/session', requireAuth, (req, res) => {
+router.get('/session', requireAuth as any, (req: Request, res: Response) => {
   res.json({
     user: {
-      username: req.user.sub,
-      groups: req.user.groups,
+      username: req.user?.sub,
+      groups: req.user?.groups,
     },
   });
 });
 
-module.exports = router;
+export default router;

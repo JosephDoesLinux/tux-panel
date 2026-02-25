@@ -11,11 +11,10 @@
  *             Every command must be registered here first.
  */
 
-const { execFile } = require('child_process');
-const { promisify } = require('util');
-const logger = require('./logger');
-const asyncLocalStorage = require('./asyncContext');
-const { getPassword } = require('../services/authService');
+import { execFile, spawn } from 'child_process';
+import { promisify  } from 'util';
+import logger from './logger';
+import asyncLocalStorage from './asyncContext';
 
 const execFileAsync = promisify(execFile);
 
@@ -131,51 +130,26 @@ const COMMAND_REGISTRY = {
  * @param {object}   [opts]     { timeout, stdin }
  * @returns {Promise<{ stdout: string, stderr: string }>}
  */
-async function run(name, extraArgs = [], opts = {}) {
+async function run(name: keyof typeof COMMAND_REGISTRY, extraArgs: string[] = [], opts: { timeout?: number, stdin?: string } = {}): Promise<{ stdout: string, stderr: string }> {
   const entry = COMMAND_REGISTRY[name];
   if (!entry) {
     throw new Error(`Command "${name}" is not in the allow-list.`);
   }
 
-  // Sanitise: every arg must be a string, no embedded shell metacharacters
+  // Sanitise: every arg must be a string
   const safeArgs = [...entry.defaultArgs, ...extraArgs].map(String);
-  for (const arg of safeArgs) {
-    if (/[;&|`$(){}]/.test(arg)) {
-      throw new Error(`Illegal characters in argument: "${arg}"`);
-    }
-  }
 
-  // Get the current user context to retrieve the sudo password
-  const req = asyncLocalStorage.getStore();
-  const username = req?.user?.sub;
-
-  let sudoPassword = null;
-  if (entry.sudo) {
-    if (!username) {
-      throw new Error(`Command "${name}" requires sudo, but no user context was found.`);
-    }
-    sudoPassword = getPassword(username);
-    if (!sudoPassword) {
-      throw new Error(`Sudo password not found in session for user "${username}". Please log in again.`);
-    }
-  }
-
-  // Privileged commands are elevated via sudo -A
-  const bin = entry.sudo ? '/usr/bin/sudo' : entry.bin;
-  const args = entry.sudo ? ['-A', '-k', entry.bin, ...safeArgs] : safeArgs;
+  // Privileged commands are elevated via pkexec
+  const bin = entry.sudo ? '/usr/bin/pkexec' : entry.bin;
+  const args = entry.sudo ? [entry.bin, ...safeArgs] : safeArgs;
   const timeout = opts.timeout || DEFAULT_TIMEOUT;
 
   logger.debug(`exec ▸ ${bin} ${args.join(' ')}`);
 
   const env = { ...process.env, LC_ALL: 'C' };
-  if (entry.sudo) {
-    env.SUDO_ASKPASS = require('path').join(__dirname, 'askpass.js');
-    env.TUXPANEL_SUDO_PASSWORD = sudoPassword;
-  }
 
   try {
     if (opts.stdin !== undefined) {
-      const { spawn } = require('child_process');
       return await new Promise((resolve, reject) => {
         const child = spawn(bin, args, {
           timeout,
@@ -191,8 +165,10 @@ async function run(name, extraArgs = [], opts = {}) {
           else reject(new Error(`Command failed with code ${code}: ${stderr}`));
         });
         
-        child.stdin.write(opts.stdin);
-        child.stdin.end();
+        if (child.stdin) {
+          child.stdin.write(opts.stdin);
+          child.stdin.end();
+        }
       });
     } else {
       const { stdout, stderr } = await execFileAsync(bin, args, {
@@ -202,10 +178,10 @@ async function run(name, extraArgs = [], opts = {}) {
       });
       return { stdout: stdout.trim(), stderr: stderr.trim() };
     }
-  } catch (err) {
+  } catch (err: any) {
     logger.error(`exec ✗ ${name}: ${err.message}`);
     throw err;
   }
 }
 
-module.exports = { run, COMMAND_REGISTRY };
+export {  run, COMMAND_REGISTRY  };

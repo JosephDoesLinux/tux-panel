@@ -2,10 +2,10 @@
  * /api/diagnostics — Troubleshooting, logging, system info & reports
  */
 
-const { Router } = require('express');
-const fs = require('fs');
-const { run } = require('../utils/commandRunner');
-const logger = require('../utils/logger');
+import { Router, Request, Response, NextFunction } from 'express';
+import fs from 'fs';
+import { run  } from '../utils/commandRunner';
+import logger from '../utils/logger';
 
 const router = Router();
 
@@ -14,9 +14,9 @@ const router = Router();
    ════════════════════════════════════════════════════════════════════ */
 
 // ── GET /api/diagnostics/sysinfo ─────────────────────────────────────
-router.get('/sysinfo', async (_req, res, next) => {
+router.get('/sysinfo', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const results = {};
+    const results: any = {};
 
     // Run all info commands in parallel
     const [cpu, mem, host, uname, blk] = await Promise.allSettled([
@@ -63,7 +63,7 @@ router.get('/sysinfo', async (_req, res, next) => {
 
 // ── GET /api/diagnostics/logs ────────────────────────────────────────
 // Query params: lines, priority, unit, since, until, grep
-router.get('/logs', async (req, res, next) => {
+router.get('/logs', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const {
       lines = '200',
@@ -74,22 +74,22 @@ router.get('/logs', async (req, res, next) => {
       grep,
     } = req.query;
 
-    const args = ['--no-pager', '-n', String(Math.min(parseInt(lines, 10) || 200, 2000))];
+    const args = ['--no-pager', '-n', String(Math.min(parseInt(lines as string, 10) || 200, 2000))];
 
-    if (priority && /^[0-7]$/.test(priority)) {
-      args.push('-p', priority);
+    if (priority && /^[0-7]$/.test(priority as string)) {
+      args.push('-p', priority as string);
     }
-    if (unit && /^[a-zA-Z0-9@._-]+$/.test(unit)) {
-      args.push('-u', unit);
+    if (unit && /^[a-zA-Z0-9@._-]+$/.test(unit as string)) {
+      args.push('-u', unit as string);
     }
-    if (since && /^[a-zA-Z0-9 :\-]+$/.test(since)) {
-      args.push('--since', since);
+    if (since && /^[a-zA-Z0-9 :\-]+$/.test(since as string)) {
+      args.push('--since', since as string);
     }
-    if (until && /^[a-zA-Z0-9 :\-]+$/.test(until)) {
-      args.push('--until', until);
+    if (until && /^[a-zA-Z0-9 :\-]+$/.test(until as string)) {
+      args.push('--until', until as string);
     }
-    if (grep && grep.length <= 100) {
-      args.push('-g', grep);
+    if (grep && (grep as string).length <= 100) {
+      args.push('-g', grep as string);
     }
 
     // Output as JSON for structured parsing
@@ -107,9 +107,9 @@ router.get('/logs', async (req, res, next) => {
    ════════════════════════════════════════════════════════════════════ */
 
 // ── GET /api/diagnostics/dmesg ───────────────────────────────────────
-router.get('/dmesg', async (req, res, next) => {
+router.get('/dmesg', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const lines = Math.min(parseInt(req.query.lines, 10) || 200, 1000);
+    const lines = Math.min(parseInt(req.query.lines as string, 10) || 200, 1000);
     // Try reading dmesg via journalctl (no sudo needed) first,
     // fall back to dmesg binary
     let output;
@@ -121,22 +121,22 @@ router.get('/dmesg', async (req, res, next) => {
         const result = await run('dmesg', ['--color=never'], { timeout: 10_000 });
         const allLines = result.stdout.split('\n');
         output = allLines.slice(-lines).join('\n');
-      } catch (e2) {
+      } catch (e2: any) {
         output = `Unable to read kernel log: ${e2.message}\n\nHint: You may need to run:\n  sudo sysctl kernel.dmesg_restrict=0\nor add the user to the 'adm' group.`;
       }
     }
     res.json({ dmesg: output, total: (output || '').split('\n').length });
-  } catch (err) {
+  } catch (err: any) {
     next(err);
   }
 });
 
 // ── GET /api/diagnostics/failed-units ────────────────────────────────
-router.get('/failed-units', async (_req, res, next) => {
+router.get('/failed-units', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('failedUnits');
     res.json({ output: result.stdout });
-  } catch (err) {
+  } catch (err: any) {
     // systemctl --failed exits non-zero when there are failures
     if (err.stdout) {
       return res.json({ output: err.stdout });
@@ -146,11 +146,11 @@ router.get('/failed-units', async (_req, res, next) => {
 });
 
 // ── GET /api/diagnostics/selinux ─────────────────────────────────────
-router.get('/selinux', async (_req, res, next) => {
+router.get('/selinux', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('ausearch', [], { timeout: 10_000 });
     res.json({ denials: result.stdout });
-  } catch (err) {
+  } catch (err: any) {
     // ausearch returns 1 if no matches
     if (err.code === 1 || (err.stderr && err.stderr.includes('no matches'))) {
       return res.json({ denials: '', message: 'No SELinux denials found' });
@@ -165,7 +165,7 @@ router.get('/selinux', async (_req, res, next) => {
 });
 
 // ── GET /api/diagnostics/ports ───────────────────────────────────────
-router.get('/ports', async (_req, res, next) => {
+router.get('/ports', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('ssListening');
     res.json({ output: result.stdout });
@@ -175,16 +175,16 @@ router.get('/ports', async (_req, res, next) => {
 });
 
 // ── GET /api/diagnostics/smart/:device ───────────────────────────────
-router.get('/smart/:device', async (req, res, next) => {
+router.get('/smart/:device', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const device = req.params.device;
     // Only allow sda, sdb, nvme0n1 etc.
-    if (!/^[a-zA-Z0-9]+$/.test(device)) {
+    if (!/^[a-zA-Z0-9]+$/.test(device as string)) {
       return res.status(400).json({ error: 'Invalid device name' });
     }
     const result = await run('smartctl', ['-a', `/dev/${device}`]);
     res.json({ output: result.stdout });
-  } catch (err) {
+  } catch (err: any) {
     if (err.stdout) {
       return res.json({ output: err.stdout });
     }
@@ -193,7 +193,7 @@ router.get('/smart/:device', async (req, res, next) => {
 });
 
 // ── POST /api/diagnostics/ping ───────────────────────────────────────
-router.post('/ping', async (req, res, next) => {
+router.post('/ping', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { host } = req.body;
     if (!host || !/^[a-zA-Z0-9._:-]+$/.test(host)) {
@@ -202,14 +202,14 @@ router.post('/ping', async (req, res, next) => {
     logger.info(`Diagnostic ping: ${host}`);
     const result = await run('ping', [host], { timeout: 20_000 });
     res.json({ output: result.stdout });
-  } catch (err) {
+  } catch (err: any) {
     if (err.stdout) return res.json({ output: err.stdout, error: err.stderr });
     next(err);
   }
 });
 
 // ── POST /api/diagnostics/traceroute ─────────────────────────────────
-router.post('/traceroute', async (req, res, next) => {
+router.post('/traceroute', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { host } = req.body;
     if (!host || !/^[a-zA-Z0-9._:-]+$/.test(host)) {
@@ -218,7 +218,7 @@ router.post('/traceroute', async (req, res, next) => {
     logger.info(`Diagnostic traceroute: ${host}`);
     const result = await run('traceroute', [host], { timeout: 45_000 });
     res.json({ output: result.stdout });
-  } catch (err) {
+  } catch (err: any) {
     if (err.stdout) return res.json({ output: err.stdout, error: err.stderr });
     // traceroute not installed
     if (err.message.includes('ENOENT')) {
@@ -229,7 +229,7 @@ router.post('/traceroute', async (req, res, next) => {
 });
 
 // ── POST /api/diagnostics/dns ────────────────────────────────────────
-router.post('/dns', async (req, res, next) => {
+router.post('/dns', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { host, type = 'A' } = req.body;
     if (!host || !/^[a-zA-Z0-9._:-]+$/.test(host)) {
@@ -240,7 +240,7 @@ router.post('/dns', async (req, res, next) => {
     }
     const result = await run('dig', [host, type]);
     res.json({ output: result.stdout });
-  } catch (err) {
+  } catch (err: any) {
     if (err.message.includes('ENOENT')) {
       return res.json({ output: null, error: 'dig not installed. sudo dnf install bind-utils' });
     }
@@ -254,7 +254,7 @@ router.post('/dns', async (req, res, next) => {
 
 // ── GET /api/diagnostics/report ──────────────────────────────────────
 // Generates a full text system report
-router.get('/report', async (_req, res, next) => {
+router.get('/report', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const sections = [];
     const divider = '═'.repeat(60);
@@ -307,7 +307,7 @@ router.get('/report', async (_req, res, next) => {
       try {
         const ifaces = JSON.parse(ip.value.stdout);
         for (const iface of ifaces) {
-          const addrs = (iface.addr_info || []).map((a) => `${a.local}/${a.prefixlen}`).join(', ');
+          const addrs = (iface.addr_info || []).map((a: any) => `${a.local}/${a.prefixlen}`).join(', ');
           sections.push(`  ${iface.ifname}: ${addrs || 'no address'} (${iface.operstate})`);
         }
       } catch {
@@ -353,4 +353,4 @@ router.get('/report', async (_req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

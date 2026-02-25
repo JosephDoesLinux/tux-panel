@@ -7,14 +7,15 @@
  * Populates req.user with { sub, uid, groups, iat, exp }.
  */
 
-const { verifyToken } = require('../services/authService');
-const logger = require('../utils/logger');
+import { verifyToken  } from '../services/authService';
+import logger from '../utils/logger';
+import { Request, Response, NextFunction } from 'express';
 
 /**
  * Require a valid JWT in the 'tuxpanel_session' cookie.
  * Returns 401 if missing or invalid.
  */
-function requireAuth(req, res, next) {
+function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies?.tuxpanel_session;
 
   if (!token) {
@@ -29,7 +30,7 @@ function requireAuth(req, res, next) {
   }
 
   // Attach user info to the request
-  req.user = payload;
+  req.user = payload as any;
   next();
 }
 
@@ -40,11 +41,11 @@ function requireAuth(req, res, next) {
  * @param {string} cookieHeader - Raw Cookie header string
  * @returns {object|null}
  */
-function authenticateSocket(cookieHeader) {
+function authenticateSocket(cookieHeader: string) {
   if (!cookieHeader) return null;
 
   // Parse cookies manually (avoid extra dependency for Socket.io)
-  const cookies = {};
+  const cookies: Record<string, string> = {};
   cookieHeader.split(';').forEach((pair) => {
     const [name, ...rest] = pair.trim().split('=');
     cookies[name] = rest.join('=');
@@ -56,4 +57,4 @@ function authenticateSocket(cookieHeader) {
   return verifyToken(token);
 }
 
-module.exports = { requireAuth, authenticateSocket };
+export {  requireAuth, authenticateSocket  };

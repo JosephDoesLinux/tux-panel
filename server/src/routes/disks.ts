@@ -2,16 +2,16 @@
  * /api/disks — Block devices, btrfs subvolumes/snapshots, mounts, shares
  */
 
-const { Router } = require('express');
-const fs = require('fs');
-const { run } = require('../utils/commandRunner');
-const logger = require('../utils/logger');
+import { Router, Request, Response, NextFunction } from 'express';
+import fs from 'fs';
+import { run  } from '../utils/commandRunner';
+import logger from '../utils/logger';
 
 const router = Router();
 
 // ── GET /api/disks/block ─────────────────────────────────────────────
 // Block devices + partition table via lsblk, filesystems via df
-router.get('/block', async (_req, res, next) => {
+router.get('/block', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const [lsblkRes, dfRes] = await Promise.all([run('lsblk'), run('df')]);
 
@@ -35,9 +35,9 @@ router.get('/block', async (_req, res, next) => {
 
 // ── GET /api/disks/subvolumes ────────────────────────────────────────
 // Btrfs subvolumes for a given mountpoint (default /)
-router.get('/subvolumes', async (req, res, next) => {
+router.get('/subvolumes', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const mount = req.query.mount || '/';
+    const mount = (req.query.mount as string) || '/';
     if (!/^\/[\w/.-]*$/.test(mount)) {
       return res.status(400).json({ error: 'Invalid mount path' });
     }
@@ -51,7 +51,7 @@ router.get('/subvolumes', async (req, res, next) => {
     }).filter(Boolean);
 
     res.json({ subvolumes, mount });
-  } catch (err) {
+  } catch (err: any) {
     if (err.stderr?.includes('not a btrfs filesystem') || err.message?.includes('not a btrfs')) {
       return res.json({ subvolumes: [], mount: req.query.mount || '/', error: 'Not a btrfs filesystem' });
     }
@@ -61,7 +61,7 @@ router.get('/subvolumes', async (req, res, next) => {
 
 // ── POST /api/disks/subvolumes ───────────────────────────────────────
 // Create a btrfs subvolume
-router.post('/subvolumes', async (req, res, next) => {
+router.post('/subvolumes', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { path: subvolPath } = req.body;
     if (!subvolPath || !/^\/[\w/.-]+$/.test(subvolPath)) {
@@ -75,7 +75,7 @@ router.post('/subvolumes', async (req, res, next) => {
 
 // ── DELETE /api/disks/subvolumes ─────────────────────────────────────
 // Delete a btrfs subvolume
-router.delete('/subvolumes', async (req, res, next) => {
+router.delete('/subvolumes', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { path: subvolPath } = req.body;
     if (!subvolPath || !/^\/[\w/.-]+$/.test(subvolPath)) {
@@ -89,9 +89,9 @@ router.delete('/subvolumes', async (req, res, next) => {
 
 // ── GET /api/disks/snapshots ─────────────────────────────────────────
 // Btrfs snapshots for a given mountpoint (default /)
-router.get('/snapshots', async (req, res, next) => {
+router.get('/snapshots', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const mount = req.query.mount || '/';
+    const mount = (req.query.mount as string) || '/';
     if (!/^\/[\w/.-]*$/.test(mount)) {
       return res.status(400).json({ error: 'Invalid mount path' });
     }
@@ -108,7 +108,7 @@ router.get('/snapshots', async (req, res, next) => {
     }).filter(Boolean);
 
     res.json({ snapshots, mount });
-  } catch (err) {
+  } catch (err: any) {
     if (err.stderr?.includes('not a btrfs filesystem') || err.message?.includes('not a btrfs')) {
       return res.json({ snapshots: [], mount: req.query.mount || '/', error: 'Not a btrfs filesystem' });
     }
@@ -118,7 +118,7 @@ router.get('/snapshots', async (req, res, next) => {
 
 // ── DELETE /api/disks/snapshots ──────────────────────────────────────
 // Delete a btrfs snapshot by its full path
-router.delete('/snapshots', async (req, res, next) => {
+router.delete('/snapshots', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { path: snapPath } = req.body;
     if (!snapPath || !/^\/[\w/.-]+$/.test(snapPath)) {
@@ -132,7 +132,7 @@ router.delete('/snapshots', async (req, res, next) => {
 
 // ── POST /api/disks/snapshots ────────────────────────────────────────
 // Create a btrfs snapshot
-router.post('/snapshots', async (req, res, next) => {
+router.post('/snapshots', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { source, destination, readonly } = req.body;
     if (!source || !destination) {
@@ -150,7 +150,7 @@ router.post('/snapshots', async (req, res, next) => {
 
 // ── GET /api/disks/btrfs ────────────────────────────────────────────
 // Btrfs filesystem overview
-router.get('/btrfs', async (_req, res, next) => {
+router.get('/btrfs', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('btrfsFsShow');
     res.json({ output: result.stdout });
@@ -161,7 +161,7 @@ router.get('/btrfs', async (_req, res, next) => {
 
 // ── GET /api/disks/mounts ────────────────────────────────────────────
 // Active mounts via findmnt (JSON)
-router.get('/mounts', async (_req, res, next) => {
+router.get('/mounts', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('findmnt');
     try {
@@ -175,7 +175,7 @@ router.get('/mounts', async (_req, res, next) => {
 
 // ── POST /api/disks/mounts ───────────────────────────────────────────
 // Mount a device
-router.post('/mounts', async (req, res, next) => {
+router.post('/mounts', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { device, mountpoint, fstype, options } = req.body;
     if (!device || !mountpoint) {
@@ -194,7 +194,7 @@ router.post('/mounts', async (req, res, next) => {
 
 // ── DELETE /api/disks/mounts ─────────────────────────────────────────
 // Unmount a device or mountpoint
-router.delete('/mounts', async (req, res, next) => {
+router.delete('/mounts', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { target } = req.body;
     if (!target) {
@@ -208,10 +208,10 @@ router.delete('/mounts', async (req, res, next) => {
 
 // ── GET /api/disks/shares ────────────────────────────────────────────
 // Combined SMB + NFS share listing
-router.get('/shares', async (_req, res, next) => {
+router.get('/shares', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     // Samba shares
-    let smbShares = [];
+    let smbShares: any[] = [];
     try {
       const smbConf = '/etc/samba/smb.conf';
       if (fs.existsSync(smbConf)) {
@@ -221,7 +221,7 @@ router.get('/shares', async (_req, res, next) => {
     } catch { /* empty */ }
 
     // NFS exports
-    let nfsExports = [];
+    let nfsExports: any[] = [];
     try {
       const exportsFile = '/etc/exports';
       if (fs.existsSync(exportsFile)) {
@@ -251,7 +251,7 @@ router.get('/shares', async (_req, res, next) => {
 });
 
 // ── POST /api/disks/shares/smb ───────────────────────────────────────
-router.post('/shares/smb', async (req, res, next) => {
+router.post('/shares/smb', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, path, readOnly, guestOk } = req.body;
     if (!name || !path) return res.status(400).json({ error: 'name and path required' });
@@ -260,7 +260,7 @@ router.post('/shares/smb', async (req, res, next) => {
     let content = '';
     try {
       content = fs.readFileSync(smbConf, 'utf-8');
-    } catch (err) {
+    } catch (err: any) {
       if (err.code === 'EACCES') {
         const r = await run('catFile', [smbConf]);
         content = r.stdout;
@@ -281,7 +281,7 @@ router.post('/shares/smb', async (req, res, next) => {
 });
 
 // ── DELETE /api/disks/shares/smb ─────────────────────────────────────
-router.delete('/shares/smb', async (req, res, next) => {
+router.delete('/shares/smb', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
@@ -290,7 +290,7 @@ router.delete('/shares/smb', async (req, res, next) => {
     let content = '';
     try {
       content = fs.readFileSync(smbConf, 'utf-8');
-    } catch (err) {
+    } catch (err: any) {
       if (err.code === 'EACCES') {
         const r = await run('catFile', [smbConf]);
         content = r.stdout;
@@ -313,7 +313,7 @@ router.delete('/shares/smb', async (req, res, next) => {
 });
 
 // ── POST /api/disks/shares/nfs ───────────────────────────────────────
-router.post('/shares/nfs', async (req, res, next) => {
+router.post('/shares/nfs', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { path, clients } = req.body;
     if (!path || !clients) return res.status(400).json({ error: 'path and clients required' });
@@ -322,7 +322,7 @@ router.post('/shares/nfs', async (req, res, next) => {
     let content = '';
     try {
       content = fs.readFileSync(exportsFile, 'utf-8');
-    } catch (err) {
+    } catch (err: any) {
       if (err.code === 'EACCES') {
         const r = await run('catFile', [exportsFile]);
         content = r.stdout;
@@ -339,7 +339,7 @@ router.post('/shares/nfs', async (req, res, next) => {
 });
 
 // ── DELETE /api/disks/shares/nfs ─────────────────────────────────────
-router.delete('/shares/nfs', async (req, res, next) => {
+router.delete('/shares/nfs', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { path } = req.body;
     if (!path) return res.status(400).json({ error: 'path required' });
@@ -348,7 +348,7 @@ router.delete('/shares/nfs', async (req, res, next) => {
     let content = '';
     try {
       content = fs.readFileSync(exportsFile, 'utf-8');
-    } catch (err) {
+    } catch (err: any) {
       if (err.code === 'EACCES') {
         const r = await run('catFile', [exportsFile]);
         content = r.stdout;
@@ -364,7 +364,7 @@ router.delete('/shares/nfs', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-function parseSmbShares(content) {
+function parseSmbShares(content: string) {
   const shares = [];
   const sections = content.split(/^\[/m);
   for (const section of sections) {
@@ -373,7 +373,7 @@ function parseSmbShares(content) {
     if (!nameMatch) continue;
     const name = nameMatch[1].trim();
     if (['global', 'homes', 'printers', 'print$'].includes(name.toLowerCase())) continue;
-    const props = {};
+    const props: any = {};
     for (const line of section.split('\n').slice(1)) {
       const m = line.match(/^\s+(\S[^=]*)=\s*(.*)/);
       if (m) props[m[1].trim().replace(/\s+/g, '_')] = m[2].trim();
@@ -389,4 +389,4 @@ function parseSmbShares(content) {
   return shares;
 }
 
-module.exports = router;
+export default router;

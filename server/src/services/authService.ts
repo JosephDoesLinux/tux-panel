@@ -13,18 +13,20 @@
  * against /etc/shadow.
  */
 
-const { execFileSync } = require('child_process');
-const jwt = require('jsonwebtoken');
-const logger = require('../utils/logger');
+import { execFileSync, spawn } from 'child_process';
+import jwt from 'jsonwebtoken';
+import logger from '../utils/logger';
 
 const REQUIRED_GROUP = process.env.TUXPANEL_GROUP || 'tuxpanel';
-const JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '8h';
 
-// In-memory store for sudo passwords (keyed by username)
-const sessionPasswords = new Map();
+// Enforce a persistent JWT secret in production
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  logger.error('CRITICAL: JWT_SECRET is not set in production. Refusing to start.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 
-// Log a warning if using auto-generated secret (sessions won't survive restarts)
 if (!process.env.JWT_SECRET) {
   logger.warn('JWT_SECRET not set — using random secret (sessions lost on restart)');
 }
@@ -36,7 +38,7 @@ if (!process.env.JWT_SECRET) {
  * @param {string} password
  * @returns {Promise<{success: boolean, user?: object, error?: string}>}
  */
-async function authenticate(username, password) {
+async function authenticate(username: string, password: string): Promise<{success: boolean, user?: any, error?: string}> {
   // Basic input validation
   if (!username || !password) {
     return { success: false, error: 'Username and password are required' };
@@ -50,7 +52,7 @@ async function authenticate(username, password) {
   try {
     // Step 1: Verify PAM credentials
     await pamAuthenticate(username, password);
-  } catch (err) {
+  } catch (err: any) {
     logger.warn(`Auth failed for '${username}': ${err.message}`);
     return { success: false, error: 'Invalid username or password' };
   }
@@ -72,39 +74,19 @@ async function authenticate(username, password) {
     uid: getUserUid(username),
   };
 
-  // Store password in memory for sudo commands
-  sessionPasswords.set(username, password);
-
   logger.info(`Auth success for '${username}' (groups: ${groups.join(', ')})`);
   return { success: true, user };
-}
-
-/**
- * Get the stored password for a user.
- * @param {string} username
- * @returns {string|undefined}
- */
-function getPassword(username) {
-  return sessionPasswords.get(username);
-}
-
-/**
- * Remove the stored password for a user.
- * @param {string} username
- */
-function removePassword(username) {
-  sessionPasswords.delete(username);
 }
 
 /**
  * PAM authentication via the authenticate-pam native module.
  * Falls back to a subprocess approach if the native module isn't available.
  */
-function pamAuthenticate(username, password) {
+function pamAuthenticate(username: string, password: string): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
       const pam = require('authenticate-pam');
-      pam.authenticate(username, password, (err) => {
+      pam.authenticate(username, password, (err: any) => {
         if (err) {
           reject(new Error('PAM authentication failed'));
         } else {
@@ -123,9 +105,8 @@ function pamAuthenticate(username, password) {
  * Fallback: use Python3 + pam module for authentication.
  * Most Fedora systems have python3-pam or python3-python-pam installed.
  */
-function pamAuthenticateFallback(username, password) {
+function pamAuthenticateFallback(username: string, password: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const { spawn } = require('child_process');
     const py = spawn('python3', [
       '-c',
       `
@@ -194,7 +175,7 @@ sys.exit(0 if retval == 0 else 1)
 /**
  * Get the groups a user belongs to by reading /etc/group.
  */
-function getUserGroups(username) {
+function getUserGroups(username: string): string[] {
   try {
     const output = execFileSync('/usr/bin/id', ['-Gn', username], {
       encoding: 'utf8',
@@ -209,7 +190,7 @@ function getUserGroups(username) {
 /**
  * Get a user's UID.
  */
-function getUserUid(username) {
+function getUserUid(username: string): number {
   try {
     const output = execFileSync('/usr/bin/id', ['-u', username], {
       encoding: 'utf8',
@@ -224,7 +205,7 @@ function getUserUid(username) {
 /**
  * Sign a JWT for an authenticated user.
  */
-function signToken(user) {
+function signToken(user: { username: string, uid: number, groups: string[] }): string {
   return jwt.sign(
     {
       sub: user.username,
@@ -232,7 +213,7 @@ function signToken(user) {
       groups: user.groups,
     },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRY }
+    { expiresIn: JWT_EXPIRY as any }
   );
 }
 
@@ -240,7 +221,7 @@ function signToken(user) {
  * Verify and decode a JWT.
  * @returns {object|null} Decoded payload or null
  */
-function verifyToken(token) {
+function verifyToken(token: string): any {
   try {
     return jwt.verify(token, JWT_SECRET);
   } catch {
@@ -248,12 +229,10 @@ function verifyToken(token) {
   }
 }
 
-module.exports = {
+export { 
   authenticate,
-  getPassword,
-  removePassword,
   signToken,
   verifyToken,
   REQUIRED_GROUP,
   JWT_SECRET,
-};
+ };

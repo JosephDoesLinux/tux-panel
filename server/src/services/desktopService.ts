@@ -9,9 +9,9 @@
  *   • X11 (any DE)            → x11vnc fallback
  */
 
-const { execFile } = require('child_process');
-const { promisify } = require('util');
-const logger = require('../utils/logger');
+import { execFile  } from 'child_process';
+import { promisify  } from 'util';
+import logger from '../utils/logger';
 
 const execFileAsync = promisify(execFile);
 
@@ -26,7 +26,7 @@ function detectDesktop() {
 }
 
 // ── Check if a binary exists ─────────────────────────────────────────
-async function which(bin) {
+async function which(bin: string) {
   try {
     const { stdout } = await execFileAsync('/usr/bin/which', [bin], { timeout: 3000 });
     return stdout.trim();
@@ -168,9 +168,9 @@ async function getActiveConnection() {
   };
 }
 
-module.exports = {
+export { 
   detectDesktop,
   detectCapabilities,
   getActiveConnection,
   getKrdpPort,
-};
+ };

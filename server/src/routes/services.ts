@@ -2,10 +2,10 @@
  * /api/services — Systemd service management, process listing, config file viewing
  */
 
-const { Router } = require('express');
-const fs = require('fs');
-const { run } = require('../utils/commandRunner');
-const logger = require('../utils/logger');
+import { Router, Request, Response, NextFunction } from 'express';
+import fs from 'fs';
+import { run  } from '../utils/commandRunner';
+import logger from '../utils/logger';
 
 const router = Router();
 
@@ -20,7 +20,7 @@ const CONFIG_FILES = {
 
 // ── GET /api/services/units ──────────────────────────────────────────
 // Returns all systemd service units (loaded)
-router.get('/units', async (_req, res, next) => {
+router.get('/units', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('systemctlListAll');
     const lines = result.stdout.split('\n').filter((l) => l.trim());
@@ -50,17 +50,17 @@ router.get('/units', async (_req, res, next) => {
 
 // ── GET /api/services/status/:unit ───────────────────────────────────
 // Detailed status for a specific unit
-router.get('/status/:unit', async (req, res, next) => {
+router.get('/status/:unit', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const unit = req.params.unit;
     // Validate unit name
-    if (!/^[a-zA-Z0-9@._:-]+$/.test(unit)) {
+    if (!/^[a-zA-Z0-9@._:-]+$/.test(unit as string)) {
       return res.status(400).json({ error: 'Invalid unit name' });
     }
 
-    const result = await run('systemctlStatus', [unit]);
+    const result = await run('systemctlStatus', [unit as string]);
     res.json({ unit, output: result.stdout });
-  } catch (err) {
+  } catch (err: any) {
     // systemctl status returns non-zero for inactive services
     if (err.stdout) {
       return res.json({ unit: req.params.unit, output: err.stdout });
@@ -71,7 +71,7 @@ router.get('/status/:unit', async (req, res, next) => {
 
 // ── POST /api/services/action ────────────────────────────────────────
 // Start, stop, restart, enable, disable a systemd unit
-router.post('/action', async (req, res, next) => {
+router.post('/action', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { unit, action } = req.body;
 
@@ -98,16 +98,16 @@ router.post('/action', async (req, res, next) => {
 
 // ── GET /api/services/journal/:unit ──────────────────────────────────
 // Last N lines of journalctl for a unit
-router.get('/journal/:unit', async (req, res, next) => {
+router.get('/journal/:unit', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const unit = req.params.unit;
-    const lines = parseInt(req.query.lines, 10) || 50;
+    const lines = parseInt(req.query.lines as string, 10) || 50;
 
-    if (!/^[a-zA-Z0-9@._:-]+$/.test(unit)) {
+    if (!/^[a-zA-Z0-9@._:-]+$/.test(unit as string)) {
       return res.status(400).json({ error: 'Invalid unit name' });
     }
 
-    const result = await run('journalctl', ['-u', unit, '-n', String(lines), '--no-pager']);
+    const result = await run('journalctl', ['-u', unit as string, '-n', String(lines), '--no-pager']);
     res.json({ unit, lines: result.stdout });
   } catch (err) {
     next(err);
@@ -116,7 +116,7 @@ router.get('/journal/:unit', async (req, res, next) => {
 
 // ── GET /api/services/processes ──────────────────────────────────────
 // Running processes via ps
-router.get('/processes', async (_req, res, next) => {
+router.get('/processes', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('ps');
     const lines = result.stdout.split('\n');
@@ -157,7 +157,7 @@ router.get('/processes', async (_req, res, next) => {
 
 // ── POST /api/services/kill ──────────────────────────────────────────
 // Kill a process by PID
-router.post('/kill', async (req, res, next) => {
+router.post('/kill', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { pid, signal } = req.body;
 
@@ -180,10 +180,10 @@ router.post('/kill', async (req, res, next) => {
 
 // ── GET /api/services/config/:name ──────────────────────────────────
 // Read a service config file (ssh, smb, nfs, ftp)
-router.get('/config/:name', async (req, res, next) => {
+router.get('/config/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const name = req.params.name.toLowerCase();
-    const cfg = CONFIG_FILES[name];
+    const name = (req.params.name as string).toLowerCase();
+    const cfg = (CONFIG_FILES as any)[name];
     if (!cfg) {
       return res.status(400).json({ error: `Unknown config: ${name}. Valid: ${Object.keys(CONFIG_FILES).join(', ')}` });
     }
@@ -206,7 +206,7 @@ router.get('/config/:name', async (req, res, next) => {
         try {
           const r = await run('catFile', [configPath]);
           content = r.stdout;
-        } catch (e) {
+        } catch (e: any) {
           content = `# Unable to read ${configPath}: ${e.message}`;
         }
       }
@@ -233,10 +233,10 @@ router.get('/config/:name', async (req, res, next) => {
 
 // ── PUT /api/services/config/:name ──────────────────────────────────
 // Write a service config file and optionally restart the service
-router.put('/config/:name', async (req, res, next) => {
+router.put('/config/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const name = req.params.name.toLowerCase();
-    const cfg = CONFIG_FILES[name];
+    const name = (req.params.name as string).toLowerCase();
+    const cfg = (CONFIG_FILES as any)[name];
     if (!cfg) {
       return res.status(400).json({ error: `Unknown config: ${name}` });
     }
@@ -258,7 +258,7 @@ router.put('/config/:name', async (req, res, next) => {
     logger.warn(`Writing config: ${configPath} (${content.length} bytes)`);
     try {
       fs.writeFileSync(configPath, content, 'utf-8');
-    } catch (err) {
+    } catch (err: any) {
       if (err.code === 'EACCES') {
         // Fallback to sudo tee
         await run('tee', [configPath], { stdin: content });
@@ -272,7 +272,7 @@ router.put('/config/:name', async (req, res, next) => {
       try {
         await run('systemctlAction', ['restart', cfg.service]);
         logger.info(`Restarted ${cfg.service} after config update`);
-      } catch (e) {
+      } catch (e: any) {
         logger.warn(`Failed to restart ${cfg.service}: ${e.message}`);
         return res.json({ ok: true, warning: `Config saved but service restart failed: ${e.message}` });
       }
@@ -284,13 +284,13 @@ router.put('/config/:name', async (req, res, next) => {
 
 // ── GET /api/services/config-list ───────────────────────────────────
 // List available configs with their install/active status
-router.get('/config-list', async (_req, res, next) => {
+router.get('/config-list', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const configs = [];
     for (const [name, cfg] of Object.entries(CONFIG_FILES)) {
       let installed = fs.existsSync(cfg.path);
-      if (!installed && cfg.altPaths) {
-        installed = cfg.altPaths.some((p) => fs.existsSync(p));
+      if (!installed && (cfg as any).altPaths) {
+        installed = (cfg as any).altPaths.some((p: string) => fs.existsSync(p));
       }
       let serviceActive = false;
       try {
@@ -304,4 +304,4 @@ router.get('/config-list', async (_req, res, next) => {
   } catch (err) { next(err); }
 });
 
-module.exports = router;
+export default router;

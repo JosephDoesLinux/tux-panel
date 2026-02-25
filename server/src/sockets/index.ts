@@ -2,15 +2,15 @@
  * Socket.io initialisation — real-time terminal (node-pty) and live stats.
  */
 
-const { Server } = require('socket.io');
-const logger = require('../utils/logger');
-const { attachTerminalHandlers } = require('./terminal');
-const { authenticateSocket } = require('../middleware/auth');
+import { Server  } from 'socket.io';
+import logger from '../utils/logger';
+import { attachTerminalHandlers  } from './terminal';
+import { authenticateSocket  } from '../middleware/auth';
 
 /**
  * @param {import('http').Server} httpServer
  */
-function initSocketIO(httpServer) {
+function initSocketIO(httpServer: any) {
   const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
     .split(',')
     .map((o) => o.trim());
@@ -35,8 +35,8 @@ function initSocketIO(httpServer) {
   });
 
   // ── Authentication middleware for all namespaces ────────────────
-  io.use((socket, next) => {
-    const user = authenticateSocket(socket.handshake.headers.cookie);
+  io.use((socket: any, next) => {
+    const user = authenticateSocket(socket.handshake.headers.cookie || '');
     if (!user) {
       logger.warn(`Socket auth failed from ${socket.handshake.address}`);
       return next(new Error('Authentication required'));
@@ -64,4 +64,4 @@ function initSocketIO(httpServer) {
   return io;
 }
 
-module.exports = { initSocketIO };
+export {  initSocketIO  };

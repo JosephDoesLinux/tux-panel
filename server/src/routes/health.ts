@@ -2,12 +2,12 @@
  * /api/health — lightweight liveness & readiness probe
  */
 
-const { Router } = require('express');
-const os = require('os');
+import { Router, Request, Response, NextFunction } from 'express';
+import os from 'os';
 
 const router = Router();
 
-router.get('/', (_req, res) => {
+router.get('/', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     uptime: process.uptime(),
@@ -18,4 +18,4 @@ router.get('/', (_req, res) => {
   });
 });
 
-module.exports = router;
+export default router;

@@ -2,15 +2,15 @@
  * /api/accounts — User account & security management
  */
 
-const { Router } = require('express');
-const { run } = require('../utils/commandRunner');
-const logger = require('../utils/logger');
+import { Router, Request, Response, NextFunction } from 'express';
+import { run  } from '../utils/commandRunner';
+import logger from '../utils/logger';
 
 const router = Router();
 
 // ── GET /api/accounts/users ──────────────────────────────────────────
 // Returns local user accounts (UID >= 1000, excluding nfsnobody/nobody)
-router.get('/users', async (_req, res, next) => {
+router.get('/users', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('userList');
     const lines = result.stdout.split('\n').filter((l) => l.trim());
@@ -44,7 +44,7 @@ router.get('/users', async (_req, res, next) => {
 });
 
 // ── GET /api/accounts/groups ─────────────────────────────────────────
-router.get('/groups', async (_req, res, next) => {
+router.get('/groups', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('groupList');
     const lines = result.stdout.split('\n').filter((l) => l.trim());
@@ -70,7 +70,7 @@ router.get('/groups', async (_req, res, next) => {
 
 // ── POST /api/accounts/users ─────────────────────────────────────────
 // Create a new user account
-router.post('/users', async (req, res, next) => {
+router.post('/users', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { username, shell, groups, createHome } = req.body;
 
@@ -98,7 +98,7 @@ router.post('/users', async (req, res, next) => {
 
 // ── POST /api/accounts/users/:username/password ──────────────────────
 // Set a user's password
-router.post('/users/:username/password', async (req, res, next) => {
+router.post('/users/:username/password', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { username } = req.params;
     const { password } = req.body;
@@ -107,13 +107,13 @@ router.post('/users/:username/password', async (req, res, next) => {
       return res.status(400).json({ error: 'Password is required' });
     }
 
-    if (!/^[a-z_][a-z0-9_-]*$/.test(username)) {
+    if (!/^[a-z_][a-z0-9_-]*$/.test(username as string)) {
       return res.status(400).json({ error: 'Invalid username' });
     }
 
     logger.info(`Setting password for user: ${username}`);
     await run('chpasswd', [], {
-      input: `${username}:${password}`,
+      stdin: `${username}:${password}`,
     });
     res.json({ ok: true });
   } catch (err) {
@@ -122,11 +122,11 @@ router.post('/users/:username/password', async (req, res, next) => {
 });
 
 // ── DELETE /api/accounts/users/:username ──────────────────────────────
-router.delete('/users/:username', async (req, res, next) => {
+router.delete('/users/:username', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { username } = req.params;
 
-    if (!/^[a-z_][a-z0-9_-]*$/.test(username)) {
+    if (!/^[a-z_][a-z0-9_-]*$/.test(username as string)) {
       return res.status(400).json({ error: 'Invalid username' });
     }
 
@@ -136,7 +136,7 @@ router.delete('/users/:username', async (req, res, next) => {
     }
 
     logger.warn(`Deleting user: ${username}`);
-    await run('userdel', ['-r', username]);
+    await run('userdel', ['-r', username as string]);
     res.json({ ok: true });
   } catch (err) {
     next(err);
@@ -145,7 +145,7 @@ router.delete('/users/:username', async (req, res, next) => {
 
 // ── POST /api/accounts/groups/:group/members ─────────────────────────
 // Add a user to a group
-router.post('/groups/:group/members', async (req, res, next) => {
+router.post('/groups/:group/members', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { group } = req.params;
     const { username } = req.body;
@@ -154,12 +154,12 @@ router.post('/groups/:group/members', async (req, res, next) => {
       return res.status(400).json({ error: 'Username is required' });
     }
 
-    if (!/^[a-z_][a-z0-9_-]*$/.test(group) || !/^[a-z_][a-z0-9_-]*$/.test(username)) {
+    if (!/^[a-z_][a-z0-9_-]*$/.test(group as string) || !/^[a-z_][a-z0-9_-]*$/.test(username as string)) {
       return res.status(400).json({ error: 'Invalid group or username' });
     }
 
     logger.info(`Adding ${username} to group ${group}`);
-    await run('usermod', ['-aG', group, username]);
+    await run('usermod', ['-aG', group as string, username as string]);
     res.json({ ok: true });
   } catch (err) {
     next(err);
@@ -168,7 +168,7 @@ router.post('/groups/:group/members', async (req, res, next) => {
 
 // ── GET /api/accounts/firewall ───────────────────────────────────────
 // Get firewalld status and zones
-router.get('/firewall', async (_req, res, next) => {
+router.get('/firewall', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const [stateRes, zonesRes] = await Promise.all([
       run('firewalldState').catch(() => ({ stdout: 'not running' })),
@@ -177,7 +177,7 @@ router.get('/firewall', async (_req, res, next) => {
 
     const running = stateRes.stdout.trim() === 'running';
 
-    let zones = [];
+    let zones: any[] = [];
     if (running) {
       try {
         const activeRes = await run('firewalldActiveZones');
@@ -199,13 +199,13 @@ router.get('/firewall', async (_req, res, next) => {
 });
 
 // ── GET /api/accounts/firewall/rules ─────────────────────────────────
-router.get('/firewall/rules', async (_req, res, next) => {
+router.get('/firewall/rules', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('firewalldListAll');
     res.json({ rules: result.stdout });
-  } catch (err) {
+  } catch (err: any) {
     res.json({ rules: '', error: err.message });
   }
 });
 
-module.exports = router;
+export default router;

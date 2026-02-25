@@ -2,16 +2,18 @@
  * /api/system — System health & info endpoints (Phase 1)
  */
 
-const { Router } = require('express');
-const os = require('os');
-const { run } = require('../utils/commandRunner');
-const logger = require('../utils/logger');
+import { Router, Request, Response, NextFunction } from 'express';
+import os from 'os';
+import { run  } from '../utils/commandRunner';
+import logger from '../utils/logger';
+
+import fs from 'fs';
 
 const router = Router();
 
 // ── GET /api/system/overview ─────────────────────────────────────────
 // Returns a combined snapshot of hostname, uptime, load, cpu, memory, disk.
-router.get('/overview', async (_req, res, next) => {
+router.get('/overview', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const [hostnameRes, uptimeRes, loadavgRes, dfRes, lsblkRes] = await Promise.all([
       run('hostname'),
@@ -66,11 +68,11 @@ router.get('/overview', async (_req, res, next) => {
 });
 
 // ── GET /api/system/memory ───────────────────────────────────────────
-router.get('/memory', async (_req, res, next) => {
+router.get('/memory', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('meminfo');
     const lines = result.stdout.split('\n');
-    const info = {};
+    const info: any = {};
     for (const line of lines) {
       const match = line.match(/^(\w+):\s+(\d+)/);
       if (match) info[match[1]] = parseInt(match[2], 10) * 1024; // kB → bytes
@@ -82,7 +84,7 @@ router.get('/memory', async (_req, res, next) => {
 });
 
 // ── GET /api/system/network ──────────────────────────────────────────
-router.get('/network', async (_req, res, next) => {
+router.get('/network', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('ipAddr');
     res.json(JSON.parse(result.stdout));
@@ -93,12 +95,11 @@ router.get('/network', async (_req, res, next) => {
 
 // ── GET /api/system/netstat ──────────────────────────────────────────
 // Returns per-interface byte counters from /proc/net/dev for throughput calcs
-router.get('/netstat', async (_req, res, next) => {
+router.get('/netstat', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const fs = require('fs');
     const raw = fs.readFileSync('/proc/net/dev', 'utf-8');
     const lines = raw.split('\n').slice(2); // skip headers
-    const interfaces = {};
+    const interfaces: Record<string, { rxBytes: number, txBytes: number }> = {};
     let totalRx = 0;
     let totalTx = 0;
 
@@ -124,7 +125,7 @@ router.get('/netstat', async (_req, res, next) => {
 });
 
 // ── GET /api/system/services ─────────────────────────────────────────
-router.get('/services', async (_req, res, next) => {
+router.get('/services', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await run('systemctlList');
     res.json({ raw: result.stdout });
@@ -134,7 +135,7 @@ router.get('/services', async (_req, res, next) => {
 });
 
 // ── POST /api/system/shutdown ─────────────────────────────────────────
-router.post('/shutdown', async (_req, res, next) => {
+router.post('/shutdown', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     logger.warn('System shutdown requested');
     res.json({ ok: true, message: 'Shutting down…' });
@@ -146,7 +147,7 @@ router.post('/shutdown', async (_req, res, next) => {
 });
 
 // ── POST /api/system/reboot ──────────────────────────────────────────
-router.post('/reboot', async (_req, res, next) => {
+router.post('/reboot', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     logger.warn('System reboot requested');
     res.json({ ok: true, message: 'Rebooting…' });
@@ -156,4 +157,4 @@ router.post('/reboot', async (_req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -5,16 +5,16 @@
  *   POST /api/rdp/connect   Generate a guacamole connection token
  */
 
-const { Router } = require('express');
-const { detectCapabilities, getActiveConnection } = require('../services/desktopService');
-const guacService = require('../services/guacService');
-const logger = require('../utils/logger');
+import { Router, Request, Response, NextFunction } from 'express';
+import { detectCapabilities, getActiveConnection  } from '../services/desktopService';
+import * as guacService from '../services/guacService';
+import logger from '../utils/logger';
 
 const router = Router();
 
 // ── GET /api/rdp/status ──────────────────────────────────────────────
 // Returns desktop environment info, available providers, and running state.
-router.get('/status', async (_req, res, next) => {
+router.get('/status', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const connection = await getActiveConnection();
     const guacReady = guacService.isReady();
@@ -30,7 +30,7 @@ router.get('/status', async (_req, res, next) => {
 
 // ── GET /api/rdp/capabilities ────────────────────────────────────────
 // Full list of detected providers.
-router.get('/capabilities', async (_req, res, next) => {
+router.get('/capabilities', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const caps = await detectCapabilities();
     res.json(caps);
@@ -44,7 +44,7 @@ router.get('/capabilities', async (_req, res, next) => {
 //
 // Body (all optional — defaults to the active local session):
 //   { hostname, port, protocol, username, password, width, height, dpi }
-router.post('/connect', async (req, res, next) => {
+router.post('/connect', async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!guacService.isReady()) {
       return res.status(503).json({
@@ -71,11 +71,10 @@ router.post('/connect', async (req, res, next) => {
     }
 
     // Merge request body with detected defaults
-// Merge request body with detected defaults
     const params = {
-      protocol: req.body.protocol || connection.provider.protocol,
-      hostname: req.body.hostname || connection.provider.host,
-      port: req.body.port || connection.provider.port,
+      protocol: req.body.protocol || (connection as any).provider?.protocol,
+      hostname: req.body.hostname || (connection as any).provider?.host,
+      port: req.body.port || (connection as any).provider?.port,
       username: req.body.username,
       password: req.body.password,
       width: req.body.width || undefined,
@@ -101,11 +100,11 @@ router.post('/connect', async (req, res, next) => {
       protocol: params.protocol,
       hostname: params.hostname,
       port: params.port,
-      provider: connection.provider.name,
+      provider: (connection as any).provider?.name,
     });
   } catch (err) {
     next(err);
   }
 });
 
-module.exports = router;
+export default router;

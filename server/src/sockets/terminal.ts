@@ -10,12 +10,12 @@
  *   S→C  terminal:exit    { code }
  */
 
-const os = require('os');
-const logger = require('../utils/logger');
+import os from 'os';
+import logger from '../utils/logger';
 
 // node-pty is a native module — guard the require so the server can still
 // start if it hasn't been compiled yet (e.g., during CI).
-let pty;
+let pty: any;
 try {
   pty = require('node-pty');
 } catch (err) {
@@ -27,8 +27,8 @@ const DEFAULT_SHELL = process.env.SHELL || '/bin/bash';
 /**
  * Attach PTY lifecycle to a single socket.
  */
-function attachTerminalHandlers(socket) {
-  let ptyProcess = null;
+function attachTerminalHandlers(socket: any) {
+  let ptyProcess: any = null;
 
   socket.on('terminal:start', ({ cols = 80, rows = 24 } = {}) => {
     if (!pty) {
@@ -52,24 +52,24 @@ function attachTerminalHandlers(socket) {
     const pid = ptyProcess.pid;
     logger.info(`PTY spawned (pid ${pid}) for socket ${socket.id}`);
 
-    ptyProcess.onData((data) => socket.emit('terminal:output', data));
+    ptyProcess.onData((data: any) => socket.emit('terminal:output', data));
 
-    ptyProcess.onExit(({ exitCode }) => {
+    ptyProcess.onExit(({ exitCode }: any) => {
       logger.info(`PTY ${pid} exited with code ${exitCode}`);
       socket.emit('terminal:exit', { code: exitCode });
       ptyProcess = null;
     });
   });
 
-  socket.on('terminal:input', (data) => {
+  socket.on('terminal:input', (data: any) => {
     if (ptyProcess) ptyProcess.write(data);
   });
 
-  socket.on('terminal:resize', ({ cols, rows }) => {
+  socket.on('terminal:resize', ({ cols, rows }: any) => {
     if (ptyProcess) {
       try {
         ptyProcess.resize(cols, rows);
-      } catch (err) {
+      } catch (err: any) {
         logger.error(`PTY resize failed: ${err.message}`);
       }
     }
@@ -84,4 +84,4 @@ function attachTerminalHandlers(socket) {
   });
 }
 
-module.exports = { attachTerminalHandlers };
+export {  attachTerminalHandlers  };
