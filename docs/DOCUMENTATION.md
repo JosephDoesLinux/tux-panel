@@ -29,7 +29,7 @@ TuxPanel is a full-stack web application designed to manage a Linux system. It i
 - **Authentication:** PAM (Pluggable Authentication Modules) via `authenticate-pam` to validate actual Linux system credentials.
 - **Command Execution:** A strict, allow-listed command runner (`commandRunner.js`) that prevents arbitrary shell execution.
 - **Real-time Communication:** Socket.io for streaming terminal I/O and potentially container logs.
-- **Privilege Escalation:** Uses `sudo -A` (Askpass) and Polkit rules to execute privileged commands securely.
+- **Privilege Escalation:** Uses `pkexec` and Polkit rules to execute privileged commands securely without storing plaintext passwords.
 
 ---
 
@@ -44,7 +44,7 @@ TuxPanel is a full-stack web application designed to manage a Linux system. It i
    - `asyncLocalStorage` wraps the request to maintain context (like the authenticated user) across asynchronous operations without passing `req` everywhere.
 3. **Route Handler:** The specific route (e.g., `/api/services`) processes the request and determines which system command needs to be run.
 4. **Command Runner:** The route calls `commandRunner.run(commandName, args)`.
-5. **Execution:** The command runner validates the command against a hardcoded registry, sanitizes arguments, retrieves the user's sudo password from memory (if required), and spawns a child process using `execFile`.
+5. **Execution:** The command runner validates the command against a hardcoded registry, sanitizes arguments, and spawns a child process using `execFile` (elevating via `pkexec` if required).
 6. **Response:** The stdout/stderr of the command is captured, parsed (often from JSON), and sent back to the client as an HTTP response.
 
 ---
@@ -63,10 +63,10 @@ Security is a primary focus of TuxPanel, as it provides web-based access to crit
 - **Allow-list:** Every permitted command is hardcoded in `COMMAND_REGISTRY` within `commandRunner.js`.
 - **Argument Sanitization:** Arguments are passed as an array to `execFile`, bypassing the shell entirely. The runner also explicitly checks arguments for illegal shell metacharacters (`;`, `&`, `|`, `$`, etc.).
 
-### 3. Privilege Escalation (Sudo & Polkit)
-- **In-Memory Password Storage:** To run `sudo` commands without prompting the user repeatedly, the plaintext password is temporarily stored in a Node.js `Map` (`sessionPasswords`) keyed by the username. It is *never* written to disk.
-- **Askpass:** When a command requires `sudo`, the runner sets the `SUDO_ASKPASS` environment variable to a custom script (`askpass.js`) and passes the password via `TUXPANEL_SUDO_PASSWORD`. `sudo -A` reads the password from this script.
-- **Polkit Rules:** A custom Polkit rule (`50-tuxpanel.rules`) is installed to allow members of the `tuxpanel` group to perform specific actions (like power management and systemd unit control) without a password prompt, providing a secondary layer of authorized privilege escalation.
+### 3. Privilege Escalation (Polkit)
+- **No Plaintext Passwords:** The backend does not store or handle plaintext passwords after the initial PAM authentication.
+- **pkexec:** When a command requires elevated privileges, the runner uses `/usr/bin/pkexec` instead of `sudo`.
+- **Polkit Rules:** A custom Polkit rule (`50-tuxpanel.rules`) is installed to allow members of the `tuxpanel` group to perform specific actions (like power management, systemd unit control, and running specific binaries) without a password prompt. This provides a secure, authorized privilege escalation path without needing to pass passwords around in memory.
 
 ---
 
@@ -77,10 +77,9 @@ Security is a primary focus of TuxPanel, as it provides web-based access to crit
 2. **API Call:** The frontend sends a `POST /api/auth/login` request.
 3. **PAM Verification:** `authService.authenticate()` uses PAM to verify the credentials against `/etc/shadow`.
 4. **Group Check:** The backend verifies the user is in the `tuxpanel` group.
-5. **Password Storage:** The plaintext password is saved in the in-memory `sessionPasswords` Map.
-6. **JWT Creation:** A JWT is signed containing the user's `sub` (username) and `groups`.
-7. **Cookie Set:** The JWT is sent back as an `httpOnly` cookie (`tuxpanel_session`).
-8. **Redirect:** The frontend `AuthContext` updates, and the user is redirected to the Dashboard.
+5. **JWT Creation:** A JWT is signed containing the user's `sub` (username) and `groups`.
+6. **Cookie Set:** The JWT is sent back as an `httpOnly` cookie (`tuxpanel_session`).
+7. **Redirect:** The frontend `AuthContext` updates, and the user is redirected to the Dashboard.
 
 ### Step-by-Step: How are credentials carried over to commands?
 1. **Protected Request:** The user clicks "Restart" on a service. The frontend sends `POST /api/services/restart`.
@@ -88,10 +87,8 @@ Security is a primary focus of TuxPanel, as it provides web-based access to crit
 3. **Async Context:** The `asyncLocalStorage` middleware ensures `req.user` is accessible anywhere in the current async execution tree.
 4. **Command Invocation:** The route calls `commandRunner.run('systemctlAction', ['restart', 'nginx.service'])`.
 5. **Registry Check:** `commandRunner` looks up `systemctlAction` and sees `sudo: true`.
-6. **Context Retrieval:** `commandRunner` gets the username from `asyncLocalStorage.getStore().user.sub`.
-7. **Password Retrieval:** It fetches the plaintext password from `authService.getPassword(username)`.
-8. **Execution:** It spawns `/usr/bin/sudo -A -k /usr/bin/systemctl restart nginx.service` with `SUDO_ASKPASS=askpass.js` and `TUXPANEL_SUDO_PASSWORD=<password>`.
-9. **Askpass:** `sudo` executes `askpass.js`, which prints the password to stdout, authenticating the command.
+6. **Execution:** It spawns `/usr/bin/pkexec /usr/bin/systemctl restart nginx.service`.
+7. **Polkit Authorization:** `pkexec` checks the system's Polkit rules. Because the user is in the `tuxpanel` group and the action is permitted by `50-tuxpanel.rules`, the command executes successfully without prompting for a password.
 
 ---
 
