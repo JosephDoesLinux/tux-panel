@@ -1,0 +1,59 @@
+// ──────────────────────────────────────────────────────────────────────
+//  TuxPanel — Polkit authorisation rules for the "tuxpanel" group
+//
+//  Grants passwordless authorisation for the actions the panel needs.
+//  Authentication is handled upstream by PAM (pam_unix via the
+//  tuxpanel PAM service) — once a user is authenticated and is a
+//  member of the tuxpanel group, these polkit rules allow the
+//  corresponding privileged operations without further prompts.
+//
+//  Install:
+//    sudo install -m 0644 50-tuxpanel.rules /etc/polkit-1/rules.d/
+// ──────────────────────────────────────────────────────────────────────
+
+polkit.addRule(function (action, subject) {
+  if (!subject.isInGroup("tuxpanel")) return;
+
+  // ── Power management ────────────────────────────────────────────
+  if (
+    action.id === "org.freedesktop.login1.power-off"                  ||
+    action.id === "org.freedesktop.login1.power-off-multiple-sessions"||
+    action.id === "org.freedesktop.login1.power-off-ignore-inhibit"   ||
+    action.id === "org.freedesktop.login1.reboot"                     ||
+    action.id === "org.freedesktop.login1.reboot-multiple-sessions"   ||
+    action.id === "org.freedesktop.login1.reboot-ignore-inhibit"
+  ) {
+    return polkit.Result.YES;
+  }
+
+  // ── systemd unit management (start / stop / restart / reload) ───
+  if (
+    action.id === "org.freedesktop.systemd1.manage-units"      ||
+    action.id === "org.freedesktop.systemd1.manage-unit-files"  ||
+    action.id === "org.freedesktop.systemd1.reload-daemon"
+  ) {
+    return polkit.Result.YES;
+  }
+
+  // ── pkexec-wrapped commands (user mgmt, process control, SMART) ─
+  if (action.id === "org.freedesktop.policykit.exec") {
+    var program = action.lookup("program");
+    var allowed = [
+      "/usr/bin/kill",
+      "/usr/bin/useradd",
+      "/usr/bin/userdel",
+      "/usr/bin/usermod",
+      "/usr/bin/chpasswd",
+      "/usr/bin/smartctl",
+      "/usr/bin/btrfs",
+      "/usr/bin/tee",
+      "/usr/bin/mount",
+      "/usr/bin/umount"
+    ];
+    for (var i = 0; i < allowed.length; i++) {
+      if (program === allowed[i]) {
+        return polkit.Result.YES;
+      }
+    }
+  }
+});

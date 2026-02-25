@@ -46,24 +46,17 @@ case "$DESKTOP" in
     ;;
 esac
 
-# ── Install guacd via Docker ─────────────────────────────────────────
-GUACD_IMAGE="guacamole/guacd:1.5.5"
-CONTAINER_NAME="tuxpanel-guacd"
+# ── Install & enable guacd (native package) ──────────────────────────
+step "Setting up guacd (native)…"
 
-step "Setting up guacd Docker container…"
-
-if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-  info "guacd container already running."
+if rpm -q guacd &>/dev/null; then
+  info "guacd is already installed."
 else
-  docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
-  docker pull "$GUACD_IMAGE"
-  docker run -d \
-    --name "$CONTAINER_NAME" \
-    --restart unless-stopped \
-    -p 4822:4822 \
-    "$GUACD_IMAGE"
-  info "guacd container started on port 4822."
+  dnf install -y guacd
 fi
+
+systemctl enable --now guacd
+info "guacd is running on port 4822."
 
 # ── Firewall ─────────────────────────────────────────────────────────
 if systemctl is-active --quiet firewalld; then
@@ -110,8 +103,8 @@ info "════════════════════════�
 info "  Remote Desktop setup complete!"
 info ""
 info "  RDP server:  krdpserver on :3389 (current session)"
-info "  Guac proxy:  guacd Docker on :4822"
+info "  Guac proxy:  guacd (native) on :4822"
 info "  TuxPanel:    proxies via guacamole-lite on :3001"
 info ""
-info "  Verify:  docker logs ${CONTAINER_NAME}"
+info "  Verify:  systemctl status guacd"
 info "══════════════════════════════════════════════════════"

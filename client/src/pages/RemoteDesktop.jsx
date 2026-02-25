@@ -95,11 +95,10 @@ const res = await api.post('/api/rdp/connect', {
       // always appends "?" + data to the URL, so putting the token here
       // would result in a double-"?" URL that corrupts the token value.
       const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProto}//${window.location.host}/guacamole`;
+const wsUrl = `${wsProto}//${window.location.host}/guacamole`;
 
-      // Create Guacamole tunnel + client
-      const tunnel = new Guacamole.WebSocketTunnel(wsUrl);
-      const client = new Guacamole.Client(tunnel);
+const tunnel = new Guacamole.WebSocketTunnel(wsUrl);
+const client = new Guacamole.Client(tunnel);
       clientRef.current = client;
 
       // Mount the display canvas
@@ -107,10 +106,16 @@ const res = await api.post('/api/rdp/connect', {
       if (displayEl) {
         displayEl.innerHTML = '';
         const guacDisplay = client.getDisplay().getElement();
-        guacDisplay.style.width = '100%';
-        guacDisplay.style.height = '100%';
-        guacDisplay.style.objectFit = 'contain';
-        displayEl.appendChild(guacDisplay);
+// Force the internal canvas to 1080p
+guacDisplay.style.width = '1920px';
+guacDisplay.style.height = '1080px';
+// Use CSS to make it fit your container while maintaining aspect ratio
+guacDisplay.style.maxWidth = '100%';
+guacDisplay.style.maxHeight = '100%';
+guacDisplay.style.objectFit = 'contain'; 
+
+displayEl.appendChild(guacDisplay);
+
       }
 
       // ── Keyboard input ───────────────────────────────────────
@@ -212,8 +217,7 @@ const res = await api.post('/api/rdp/connect', {
 
       // Connect — pass token as query-string data so the final WS URL is
       // ws://host/guacamole?token=<encoded_token>
-      client.connect(`token=${encodeURIComponent(token)}`);
-    } catch (err) {
+client.connect(`token=${encodeURIComponent(token)}`);    } catch (err) {
       setError(err.response?.data?.error || err.message);
       setState(STATE.ERROR);
       connectionInProgress.current = false;
@@ -246,13 +250,18 @@ const res = await api.post('/api/rdp/connect', {
   }
 
   // ── Cleanup on unmount ───────────────────────────────────────────
+  // Use an empty dep array so this only runs on true unmount, not on
+  // React StrictMode's dev-mode double-mount cycle.
   useEffect(() => {
     return () => {
       if (clientRef.current) {
-        disconnect();
+        try { clientRef.current.disconnect(); } catch {}
+        clientRef.current = null;
       }
+      connectionInProgress.current = false;
     };
-  }, [disconnect]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Send clipboard text to remote ────────────────────────────────
   function sendClipboard() {

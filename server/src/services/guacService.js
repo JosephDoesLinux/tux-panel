@@ -107,32 +107,26 @@ function generateToken(params) {
     throw new Error('Guacamole service not initialised');
   }
 
-// ... inside generateToken ...
-const connectionData = {
-  connection: {
-    type: params.protocol || 'rdp',
-settings: {
-        hostname: params.hostname || '127.0.0.1',
-        port: String(params.port || 3389),
-        username: params.username,
-        password: params.password,
-        
-        // --- THE PLASMA 6 SPECIAL ---
-        'security': 'tls',                // Try 'tls' instead of 'nla'
-        'ignore-cert': 'true',            // Must stay true
-        'enable-graphics-pipeline': 'true', 
-        'force-lossless': 'true',         // Helps Wayland buffers stay synced
-        'disable-audio': 'false',
-        
-        // Handshake helpers
-        'client-name': 'TuxPanel-Web',
-        'enable-font-smoothing': 'true',
-        'width': String(params.width || 1280),
-        'height': String(params.height || 720),
-        'dpi': String(params.dpi || 96),
-      },
-  },
-};
+  const connectionData = {
+    connection: {
+      type: params.protocol || 'rdp',
+      settings: {'hostname': params.hostname || '127.0.0.1',
+'port': '3389',
+'username': String(params.username),
+'password': String(params.password),
+'security': 'tls',
+'ignore-cert': 'true',
+'enable-gfx': 'false',
+'disable-gfx': 'true',
+'disable-audio': 'true',
+'enable-drive': 'false',
+'color-depth': '32',
+'width': '1920',
+'height': '1080',
+'client-name': 'Guacamole'
+}
+    },
+  };
 
   // Encrypt using the same cipher + key that guacamole-lite will decrypt with
   const iv = crypto.randomBytes(16);

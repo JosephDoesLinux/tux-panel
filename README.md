@@ -38,7 +38,7 @@ tux-panel/
 │   └── .env.example
 ├── scripts/                 # System-level setup scripts
 │   ├── install-deps.sh      # Fedora package installer
-│   ├── setup-guacd.sh       # Guacamole Docker container
+│   ├── setup-guacd.sh       # Guacamole guacd daemon (native)
 │   └── setup-rdp.sh         # RDP server detection & setup
 ├── docs/                    # Architecture & roadmap docs
 └── package.json             # Root workspace (concurrently)
@@ -54,6 +54,8 @@ git clone git@github.com:JosephDoesLinux/tux-panel.git
 cd tux-panel
 
 # 2 — System dependencies (Fedora)
+#     Also installs polkit rules so the tuxpanel group can
+#     manage services, users, and power without password prompts.
 sudo bash scripts/install-deps.sh
 
 # 3 — Create the tuxpanel group & add your user
@@ -61,16 +63,19 @@ sudo groupadd tuxpanel
 sudo usermod -aG tuxpanel $USER
 # Log out and back in for group to take effect
 
-# 4 — PAM service config
+# 4 — Re-run the installer so polkit rules pick up the new group
+sudo bash scripts/install-deps.sh
+
+# 5 — PAM service config
 echo -e 'auth       required     pam_unix.so\naccount    required     pam_unix.so' | sudo tee /etc/pam.d/tuxpanel
 
-# 5 — Install Node packages
+# 6 — Install Node packages
 npm run install:all
 
-# 6 — Copy env
+# 7 — Copy env
 cp server/.env.example server/.env
 
-# 7 — Run dev servers (API on :3001, UI on :5173)
+# 8 — Run dev servers (API on :3001, UI on :5173)
 npm run dev
 ```
 
@@ -93,7 +98,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the full 4-phase plan.
 
 - **OS:** Fedora 43+ (systemd-based Linux)
 - **Node.js:** 22.x LTS
-- **Docker:** For guacd (RDP proxy)
+- **guacd:** Guacamole proxy daemon (Fedora native package)
 - **Packages:** samba, nfs-utils, openssh-server, util-linux
 
 ---

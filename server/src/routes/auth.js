@@ -7,7 +7,7 @@
  */
 
 const { Router } = require('express');
-const { authenticate, signToken } = require('../services/authService');
+const { authenticate, signToken, verifyToken, removePassword } = require('../services/authService');
 const { requireAuth } = require('../middleware/auth');
 const logger = require('../utils/logger');
 
@@ -62,7 +62,14 @@ router.post('/login', async (req, res) => {
 /**
  * POST /api/auth/logout
  */
-router.post('/logout', (_req, res) => {
+router.post('/logout', (req, res) => {
+  const token = req.cookies?.tuxpanel_session;
+  if (token) {
+    const payload = verifyToken(token);
+    if (payload?.sub) {
+      removePassword(payload.sub);
+    }
+  }
   res.clearCookie(COOKIE_NAME, { path: '/' });
   res.json({ message: 'Logged out' });
 });

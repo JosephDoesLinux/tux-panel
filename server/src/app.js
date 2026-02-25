@@ -9,8 +9,16 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('./middleware/auth');
 const logger = require('./utils/logger');
+const asyncLocalStorage = require('./utils/asyncContext');
 
 const app = express();
+
+// ── Async Context ─────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  asyncLocalStorage.run(req, () => {
+    next();
+  });
+});
 
 // ── Security ──────────────────────────────────────────────────────────
 app.use(helmet());
@@ -62,9 +70,12 @@ app.use('/api/health', require('./routes/health'));      // Public — health ch
 app.use('/api/auth',   require('./routes/auth'));        // Public — login/logout/session
 app.use('/api/system', requireAuth, require('./routes/system'));  // Protected
 app.use('/api/rdp',    requireAuth, require('./routes/rdp'));     // Protected
-// Phase 2
-// app.use('/api/users',   requireAuth, require('./routes/users'));
-// app.use('/api/shares',  requireAuth, require('./routes/shares'));
+app.use('/api/storage',    requireAuth, require('./routes/storage'));    // Protected
+app.use('/api/disks',      requireAuth, require('./routes/disks'));      // Protected
+app.use('/api/services',   requireAuth, require('./routes/services'));   // Protected
+app.use('/api/containers', requireAuth, require('./routes/containers')); // Protected
+app.use('/api/accounts',   requireAuth, require('./routes/accounts'));   // Protected
+app.use('/api/diagnostics', requireAuth, require('./routes/diagnostics')); // Protected
 
 // ── Catch-All 404 ────────────────────────────────────────────────────
 app.use((_req, res) => {

@@ -80,7 +80,7 @@
 - [ ] SSH to remote hosts (not just localhost)
 
 ### 3.2 — Web RDP (Guacamole Proxy)
-- [x] guacd Docker setup script
+- [x] guacd setup script (native Fedora package)
 - [ ] Guacamole client library integration
 - [ ] `POST /api/rdp/connect` — initiate RDP session
 - [ ] Connection manager (saved hosts)
@@ -127,8 +127,7 @@
 | `nfs-utils`         | NFS server/client              | ✅ 2.8.4 (server inactive)  |
 | `openssh-server`    | SSH daemon                     | ✅ sshd active              |
 | `firewalld`         | Firewall management            | ✅ 2.3.2 (active)           |
-| `docker`            | Container runtime (for guacd)  | ✅ 29.1.4                   |
-| `guacd`             | Guacamole RDP proxy daemon     | ❌ Not in Fedora repos — use Docker |
+| `guacd`             | Guacamole RDP proxy daemon     | ✅ 1.6.0 (native package)   |
 | `lm_sensors`        | CPU temperature readings       | ⬜ Install needed            |
 | `jq`                | JSON processing in scripts     | ⬜ Install needed            |
 | `gcc-c++` / `make`  | Build node-pty native module   | ⬜ Verify                    |
@@ -137,5 +136,5 @@
 - **SELinux:** Enforcing (requires `samba_enable_home_dirs`, `samba_export_all_rw`)
 - **ZeroTier:** Active (zt4hombach interface at 10.147.20.90) — useful for remote access
 - **Filesystem:** btrfs on nvme0n1p6 (88% used — 57 GB free)
-- **User:** joseph (uid=1000), member of wheel, docker, libvirt, ollama groups
+- **User:** joseph (uid=1000), member of wheel, libvirt, ollama groups
 - **Ollama:** Group exists — local LLM already set up (useful for Phase 4 AI chatbot)

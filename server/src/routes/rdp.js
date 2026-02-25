@@ -49,7 +49,7 @@ router.post('/connect', async (req, res, next) => {
     if (!guacService.isReady()) {
       return res.status(503).json({
         error: 'Guacamole proxy not available. Is guacd running?',
-        hint: 'Run: sudo bash scripts/setup-guacd.sh',
+        hint: 'Run: sudo systemctl start guacd',
       });
     }
 
@@ -78,15 +78,6 @@ router.post('/connect', async (req, res, next) => {
       port: req.body.port || connection.provider.port,
       username: req.body.username,
       password: req.body.password,
-      
-      // --- CRITICAL FOR KDE PLASMA 6 ---
-      security: 'nla',              // krdp usually requires NLA
-      'ignore-cert': 'true',        // krdp uses self-signed certs by default
-      'enable-audio': 'true',       // Plasma 6 supports audio redirection
-      'enable-font-smoothing': 'true',
-      'enable-graphics-pipeline': 'true', // Better performance for Wayland
-      
-      // Display settings
       width: req.body.width || undefined,
       height: req.body.height || undefined,
       dpi: req.body.dpi || undefined,

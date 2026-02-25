@@ -21,6 +21,9 @@ const REQUIRED_GROUP = process.env.TUXPANEL_GROUP || 'tuxpanel';
 const JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '8h';
 
+// In-memory store for sudo passwords (keyed by username)
+const sessionPasswords = new Map();
+
 // Log a warning if using auto-generated secret (sessions won't survive restarts)
 if (!process.env.JWT_SECRET) {
   logger.warn('JWT_SECRET not set — using random secret (sessions lost on restart)');
@@ -69,8 +72,28 @@ async function authenticate(username, password) {
     uid: getUserUid(username),
   };
 
+  // Store password in memory for sudo commands
+  sessionPasswords.set(username, password);
+
   logger.info(`Auth success for '${username}' (groups: ${groups.join(', ')})`);
   return { success: true, user };
+}
+
+/**
+ * Get the stored password for a user.
+ * @param {string} username
+ * @returns {string|undefined}
+ */
+function getPassword(username) {
+  return sessionPasswords.get(username);
+}
+
+/**
+ * Remove the stored password for a user.
+ * @param {string} username
+ */
+function removePassword(username) {
+  sessionPasswords.delete(username);
 }
 
 /**
@@ -227,6 +250,8 @@ function verifyToken(token) {
 
 module.exports = {
   authenticate,
+  getPassword,
+  removePassword,
   signToken,
   verifyToken,
   REQUIRED_GROUP,

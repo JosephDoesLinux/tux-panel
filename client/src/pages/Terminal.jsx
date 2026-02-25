@@ -1,104 +1,194 @@
-import { useEffect, useRef } from 'react';
-import { Terminal as XTerm } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
-import { io } from 'socket.io-client';
-import '@xterm/xterm/css/xterm.css';
-
-// Gruvbox dark palette for the terminal (always dark regardless of UI theme)
-const GRUVBOX_THEME = {
-  background: '#1d2021',
-  foreground: '#ebdbb2',
-  cursor: '#fabd2f',
-  cursorAccent: '#1d2021',
-  selectionBackground: '#504945',
-  selectionForeground: '#ebdbb2',
-  black: '#282828',
-  red: '#cc241d',
-  green: '#98971a',
-  yellow: '#d79921',
-  blue: '#458588',
-  magenta: '#b16286',
-  cyan: '#689d6a',
-  white: '#a89984',
-  brightBlack: '#928374',
-  brightRed: '#fb4934',
-  brightGreen: '#b8bb26',
-  brightYellow: '#fabd2f',
-  brightBlue: '#83a598',
-  brightMagenta: '#d3869b',
-  brightCyan: '#8ec07c',
-  brightWhite: '#ebdbb2',
-};
+import { useEffect, useState, useRef } from 'react';
+import { Plus, X, Pencil, Check, Columns2 } from 'lucide-react';
+import { useTerminal } from '../contexts/TerminalContext';
+import TerminalPane from '../components/TerminalPane';
 
 export default function Terminal() {
-  const termRef = useRef(null);
-  const xtermRef = useRef(null);
+  const {
+    sessions,
+    activeTabId,
+    setActiveTab,
+    createSession,
+    closeSession,
+    renameSession,
+    splitTab,
+    unsplitTab,
+  } = useTerminal();
 
+  // Derive per-tab split state from the active session
+  const activeSession = sessions.find((s) => s.id === activeTabId);
+  const currentSplitId = activeSession?.splitId ?? null;
+
+  const [editingId, setEditingId] = useState(null);
+  const [editValue, setEditValue] = useState('');
+  const editRef = useRef(null);
+
+  // Auto-create a session on first visit (or when last tab is closed)
   useEffect(() => {
-    if (!termRef.current) return;
+    if (sessions.length === 0) createSession();
+  }, [sessions.length, createSession]);
 
-    // ── xterm.js instance ───────────────────────────────────────
-    const xterm = new XTerm({
-      cursorBlink: true,
-      fontSize: 14,
-      fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-      theme: GRUVBOX_THEME,
-    });
+  // Focus rename input
+  useEffect(() => {
+    if (editingId && editRef.current) {
+      editRef.current.focus();
+      editRef.current.select();
+    }
+  }, [editingId]);
 
-    const fitAddon = new FitAddon();
-    xterm.loadAddon(fitAddon);
-    xterm.loadAddon(new WebLinksAddon());
-    xterm.open(termRef.current);
-    fitAddon.fit();
-    xtermRef.current = xterm;
+  // ── Tab rename helpers ──────────────────────────────────────────
+  function startRename(id, name) {
+    setEditingId(id);
+    setEditValue(name);
+  }
 
-    // ── Socket.io connection ────────────────────────────────────
-    const socket = io('/terminal', {
-      transports: ['websocket'],
-    });
+  function commitRename() {
+    if (editingId && editValue.trim()) renameSession(editingId, editValue.trim());
+    setEditingId(null);
+  }
 
-    socket.on('connect', () => {
-      socket.emit('terminal:start', {
-        cols: xterm.cols,
-        rows: xterm.rows,
-      });
-    });
+  function cancelRename() {
+    setEditingId(null);
+  }
 
-    socket.on('terminal:output', (data) => xterm.write(data));
+  // ── Split / close ──────────────────────────────────────────────
+  function handleSplit() {
+    if (!activeTabId) return;
+    if (currentSplitId) {
+      unsplitTab(activeTabId);   // promotes right pane to its own tab
+    } else {
+      splitTab(activeTabId);     // creates a child session inside this tab
+    }
+  }
 
-    socket.on('terminal:exit', ({ code }) => {
-      xterm.writeln(`\r\n\x1b[33m[Process exited with code ${code}]\x1b[0m`);
-    });
-
-    // User types → server
-    xterm.onData((data) => socket.emit('terminal:input', data));
-
-    // Resize
-    const handleResize = () => {
-      fitAddon.fit();
-      socket.emit('terminal:resize', {
-        cols: xterm.cols,
-        rows: xterm.rows,
-      });
-    };
-    window.addEventListener('resize', handleResize);
-
-    // ── Cleanup ─────────────────────────────────────────────────
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      socket.disconnect();
-      xterm.dispose();
-    };
-  }, []);
+  function handleClose(id) {
+    closeSession(id);
+  }
 
   return (
     <div className="flex flex-col h-full">
-      <h1 className="text-2xl font-black uppercase tracking-tight mb-4 text-gb-fg1">Terminal</h1>
-      <div
-        ref={termRef}
-        className="flex-1 min-h-0 w-full border-2 border-gb-bg2 overflow-hidden"
-      />
+      {/* ── Tab Bar ──────────────────────────────────────────────── */}
+      <div className="flex items-center border-b-2 border-gb-bg2 pb-1 mb-1 gap-1">
+        {/* Tabs */}
+        <div className="flex items-center gap-1 flex-1 overflow-x-auto min-w-0">
+          {sessions.map((s) => (
+            <div
+              key={s.id}
+              onClick={() => setActiveTab(s.id)}
+              className={`group flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold border-2 cursor-pointer transition-colors select-none shrink-0 ${
+                s.id === activeTabId
+                  ? 'bg-gb-bg1 text-gb-aqua border-gb-aqua-dim'
+                  : 'bg-gb-bg0 text-gb-fg4 border-gb-bg3 hover:text-gb-fg1 hover:bg-gb-bg1'
+              }`}
+            >
+              {/* Alive dot */}
+              <span
+                className={`inline-block w-1.5 h-1.5 shrink-0 ${
+                  s.alive ? 'bg-gb-green' : 'bg-gb-bg4'
+                }`}
+              />
+
+              {editingId === s.id ? (
+                /* ── Rename input ─────────────────────────────── */
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    commitRename();
+                  }}
+                  className="flex items-center gap-1"
+                >
+                  <input
+                    ref={editRef}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={commitRename}
+                    onKeyDown={(e) => e.key === 'Escape' && cancelRename()}
+                    className="w-24 bg-gb-bg0-hard text-gb-fg1 text-sm px-1 py-0 border border-gb-aqua-dim focus:outline-none"
+                  />
+                  <button type="submit" className="text-gb-green hover:text-gb-green-dim">
+                    <Check size={12} />
+                  </button>
+                </form>
+              ) : (
+                /* ── Normal tab content ───────────────────────── */
+                <>
+                  <span className="truncate max-w-32">{s.name}</span>
+
+                  {/* Rename button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startRename(s.id, s.name);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 text-gb-fg4 hover:text-gb-yellow transition-opacity"
+                    title="Rename tab"
+                  >
+                    <Pencil size={12} />
+                  </button>
+
+                  {/* Close button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleClose(s.id);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 text-gb-fg4 hover:text-gb-red transition-opacity"
+                    title="Close tab"
+                  >
+                    <X size={12} />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-1 ml-2 shrink-0">
+          {/* New tab */}
+          <button
+            onClick={() => createSession()}
+            className="flex items-center justify-center w-8 h-8 border-2 border-gb-bg3 bg-gb-bg0 text-gb-fg4 hover:text-gb-green hover:border-gb-green-dim transition-colors"
+            title="New tab"
+          >
+            <Plus size={14} />
+          </button>
+
+          {/* Split toggle */}
+          <button
+            onClick={handleSplit}
+            className={`flex items-center justify-center w-8 h-8 border-2 transition-colors ${
+              currentSplitId
+                ? 'bg-gb-bg1 text-gb-aqua border-gb-aqua-dim'
+                : 'bg-gb-bg0 text-gb-fg4 border-gb-bg3 hover:text-gb-aqua hover:border-gb-aqua-dim'
+            }`}
+            title={currentSplitId ? 'Unsplit (promote to tab)' : 'Split terminal'}
+          >
+            <Columns2 size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Terminal Pane(s) ──────────────────────────────────────── */}
+      <div className="flex-1 min-h-0 flex gap-1">
+        {/* Main pane */}
+        {activeTabId && (
+          <div
+            className={`border-2 border-gb-bg2 overflow-hidden ${
+              currentSplitId ? 'flex-1' : 'w-full'
+            }`}
+          >
+            <TerminalPane key={activeTabId} sessionId={activeTabId} />
+          </div>
+        )}
+
+        {/* Split pane (per-tab) */}
+        {currentSplitId && (
+          <div className="flex-1 border-2 border-gb-bg2 overflow-hidden">
+            <TerminalPane key={currentSplitId} sessionId={currentSplitId} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

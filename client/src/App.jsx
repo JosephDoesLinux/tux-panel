@@ -6,6 +6,12 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Terminal from './pages/Terminal';
 import RemoteDesktop from './pages/RemoteDesktop';
+import Storage from './pages/Storage';
+import Services from './pages/Services';
+import Disks from './pages/Disks';
+import Containers from './pages/Containers';
+import Accounts from './pages/Accounts';
+import Troubleshooting from './pages/Troubleshooting';
 import { Loader2 } from 'lucide-react';
 
 // ── Route guard — redirects to /login if not authenticated ────────
@@ -65,9 +71,12 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/terminal" element={<Terminal />} />
               <Route path="/rdp" element={<RemoteDesktop />} />
-              {/* Phase 2 */}
-              {/* <Route path="/users" element={<Users />} /> */}
-              {/* <Route path="/shares" element={<Shares />} /> */}
+              <Route path="/storage" element={<Storage />} />
+              <Route path="/disks" element={<Disks />} />
+              <Route path="/services" element={<Services />} />
+              <Route path="/containers" element={<Containers />} />
+              <Route path="/accounts" element={<Accounts />} />
+              <Route path="/troubleshooting" element={<Troubleshooting />} />
             </Route>
 
             {/* Catch-all */}

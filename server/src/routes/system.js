@@ -91,11 +91,66 @@ router.get('/network', async (_req, res, next) => {
   }
 });
 
+// ── GET /api/system/netstat ──────────────────────────────────────────
+// Returns per-interface byte counters from /proc/net/dev for throughput calcs
+router.get('/netstat', async (_req, res, next) => {
+  try {
+    const fs = require('fs');
+    const raw = fs.readFileSync('/proc/net/dev', 'utf-8');
+    const lines = raw.split('\n').slice(2); // skip headers
+    const interfaces = {};
+    let totalRx = 0;
+    let totalTx = 0;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const [name, rest] = trimmed.split(':');
+      const iface = name.trim();
+      if (iface === 'lo') continue; // skip loopback
+      const parts = rest.trim().split(/\s+/).map(Number);
+      // /proc/net/dev columns: rx_bytes rx_packets ... tx_bytes tx_packets ...
+      const rxBytes = parts[0];
+      const txBytes = parts[8];
+      interfaces[iface] = { rxBytes, txBytes };
+      totalRx += rxBytes;
+      totalTx += txBytes;
+    }
+
+    res.json({ interfaces, totalRx, totalTx, timestamp: Date.now() });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── GET /api/system/services ─────────────────────────────────────────
 router.get('/services', async (_req, res, next) => {
   try {
     const result = await run('systemctlList');
     res.json({ raw: result.stdout });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/system/shutdown ─────────────────────────────────────────
+router.post('/shutdown', async (_req, res, next) => {
+  try {
+    logger.warn('System shutdown requested');
+    res.json({ ok: true, message: 'Shutting down…' });
+    // Small delay so the response reaches the client
+    setTimeout(() => run('poweroff').catch((e) => logger.error(`poweroff failed: ${e.message}`)), 500);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/system/reboot ──────────────────────────────────────────
+router.post('/reboot', async (_req, res, next) => {
+  try {
+    logger.warn('System reboot requested');
+    res.json({ ok: true, message: 'Rebooting…' });
+    setTimeout(() => run('reboot').catch((e) => logger.error(`reboot failed: ${e.message}`)), 500);
   } catch (err) {
     next(err);
   }

@@ -47,11 +47,7 @@ PACKAGES=(
   python3
 
   # Guacamole (RDP proxy) — Phase 3
-  # NOTE: guacd is not in default Fedora repos as of Fedora 43.
-  #       We will use the Docker image or build from source.
-  #       Uncomment if EPEL / COPR provides it:
-  # guacd
-  # libguac-client-rdp
+  guacd
 
   # Misc
   jq                # JSON parsing in scripts
@@ -88,6 +84,19 @@ if command -v setsebool &>/dev/null; then
   info "Setting SELinux booleans for Samba…"
   setsebool -P samba_enable_home_dirs on
   setsebool -P samba_export_all_rw on
+fi
+
+# ── Polkit – authorisation rules for the tuxpanel group ──────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+POLKIT_SRC="${SCRIPT_DIR}/../server/polkit/50-tuxpanel.rules"
+if [[ -f "$POLKIT_SRC" ]]; then
+  info "Installing polkit rules for tuxpanel group…"
+  install -m 0644 "$POLKIT_SRC" /etc/polkit-1/rules.d/50-tuxpanel.rules
+  # Remove the old power-only rule if it exists
+  rm -f /etc/polkit-1/rules.d/50-tuxpanel-power.rules
+  info "Polkit rules installed (/etc/polkit-1/rules.d/50-tuxpanel.rules)"
+else
+  warn "server/polkit/50-tuxpanel.rules not found – skipping polkit setup"
 fi
 
 info "──────────────────────────────────────────────"
