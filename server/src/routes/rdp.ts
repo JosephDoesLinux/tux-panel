@@ -1,13 +1,13 @@
 /**
- * /api/rdp — Remote Desktop endpoints
+ * /api/rdp — Remote Desktop (VNC) endpoints
  *
- *   GET  /api/rdp/status    Desktop env info + RDP server status
- *   POST /api/rdp/connect   Generate a guacamole connection token
+ *   GET  /api/rdp/status        Desktop env + VNC server status + krfbrc config
+ *   GET  /api/rdp/capabilities  Full list of detected providers
+ *   POST /api/rdp/connect       Verify VNC availability before WebSocket connect
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { detectCapabilities, getActiveConnection  } from '../services/desktopService';
-import * as guacService from '../services/guacService';
+import { detectCapabilities, getActiveConnection } from '../services/desktopService';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -17,11 +17,10 @@ const router = Router();
 router.get('/status', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const connection = await getActiveConnection();
-    const guacReady = guacService.isReady();
 
     res.json({
       ...connection,
-      guacProxy: guacReady ? 'ready' : 'not-initialised',
+      vncProxy: 'ready',
     });
   } catch (err) {
     next(err);
@@ -40,25 +39,15 @@ router.get('/capabilities', async (_req: Request, res: Response, next: NextFunct
 });
 
 // ── POST /api/rdp/connect ────────────────────────────────────────────
-// Generates an encrypted connection token for the guacamole WebSocket.
-//
-// Body (all optional — defaults to the active local session):
-//   { hostname, port, protocol, username, password, width, height, dpi }
+// Ensure VNC proxy is available
 router.post('/connect', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (!guacService.isReady()) {
-      return res.status(503).json({
-        error: 'Guacamole proxy not available. Is guacd running?',
-        hint: 'Run: sudo systemctl start guacd',
-      });
-    }
-
     // Get the active local session as defaults
-    const connection = await getActiveConnection();
+    const connection: any = await getActiveConnection();
 
     if (connection.status === 'unavailable') {
       return res.status(404).json({
-        error: 'No RDP/VNC server is available on this system.',
+        error: 'No VNC server is available on this system.',
         desktop: connection.desktop,
       });
     }
@@ -70,39 +59,19 @@ router.post('/connect', async (req: Request, res: Response, next: NextFunction) 
       });
     }
 
-    // Merge request body with detected defaults
-    const params = {
-      protocol: req.body.protocol || (connection as any).provider?.protocol,
-      hostname: req.body.hostname || (connection as any).provider?.host,
-      port: req.body.port || (connection as any).provider?.port,
-      username: req.body.username,
-      password: req.body.password,
-      width: req.body.width || undefined,
-      height: req.body.height || undefined,
-      dpi: req.body.dpi || undefined,
-    };
+    const host = connection.provider?.host || '127.0.0.1';
+    const port = connection.provider?.port || 5900;
 
-    // krdpserver requires credentials — guacamole-lite cannot relay
-    // guacd's "required" instruction, so they must be baked into the token.
-    if (!params.username || !params.password) {
-      return res.status(400).json({
-        error: 'Username and password are required for RDP authentication.',
-      });
-    }
-
-    const token = guacService.generateToken(params);
-
-    logger.info(`RDP token generated → ${params.protocol}://${params.hostname}:${params.port} (user=${params.username || '<none>'})`);
+    logger.info(`VNC connection verified → proxying to ${host}:${port}`);
 
     res.json({
-      token,
-      wsUrl: '/guacamole',
-      protocol: params.protocol,
-      hostname: params.hostname,
-      port: params.port,
-      provider: (connection as any).provider?.name,
+      wsUrl: '/vnc',
+      protocol: connection.provider?.protocol || 'vnc',
+      host,
+      port,
     });
   } catch (err) {
+    logger.error('Error verifying VNC connection: ' + (err as Error).message);
     next(err);
   }
 });

@@ -10,7 +10,7 @@ dotenv.config();
 import http from 'http';
 import app from './app';
 import { initSocketIO  } from './sockets';
-import { initGuacamole, getWebSocketServer  } from './services/guacService';
+import { initVncProxy, getWebSocketServer  } from './services/vncService';
 import logger from './utils/logger';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -21,21 +21,21 @@ const server = http.createServer(app);
 // IMPORTANT: Socket.io MUST attach first so its upgrade listener is registered.
 initSocketIO(server);
 
-// Initialize Guacamole WebSocket server
-initGuacamole(server);
+// Initialize VNC WebSocket server
+initVncProxy(server);
 
-const guacWss = getWebSocketServer();
-if (guacWss) {
+const vncWss = getWebSocketServer();
+if (vncWss) {
   // Remove the ws-installed 'upgrade' listener that aborts non-matching paths
-  if (guacWss._removeListeners) {
-    guacWss._removeListeners();
+  if ((vncWss as any)._removeListeners) {
+    (vncWss as any)._removeListeners();
   }
-  // Re-add a safe upgrade listener that only handles /guacamole
+  // Re-add a safe upgrade listener that only handles /vnc
   server.on('upgrade', (req, socket, head) => {
     const pathname = req.url?.split('?')[0];
-    if (pathname === '/guacamole') {
-      guacWss.handleUpgrade(req, socket, head, (ws: any) => {
-        guacWss.emit('connection', ws, req);
+    if (pathname === '/vnc') {
+      vncWss.handleUpgrade(req, socket, head, (ws: any) => {
+        vncWss.emit('connection', ws, req);
       });
     }
     // Non-matching paths are left alone for Socket.io

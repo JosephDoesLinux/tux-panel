@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import Guacamole from 'guacamole-common-js';
+import RFB from '@novnc/novnc/lib/rfb';
 import {
   MonitorPlay,
   Maximize,
@@ -14,7 +14,20 @@ import {
 import api from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
-// ── Connection state machine ─────────────────────────────────────────
+/* ── Helpers ─────────────────────────────────────────────────────── */
+
+function SectionHeader({ icon: Icon, title, color = 'text-gb-aqua', children }) {
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        <Icon size={20} className={color} />
+        <h2 className="text-lg font-black uppercase tracking-tight text-gb-fg1">{title}</h2>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 const STATE = {
   IDLE: 'idle',
   DETECTING: 'detecting',
@@ -27,7 +40,8 @@ const STATE = {
 export default function RemoteDesktop() {
   const connectionInProgress = useRef(false);
   const displayRef = useRef(null);
-  const clientRef = useRef(null);
+  const rfbRef = useRef(null);
+
   const [state, setState] = useState(STATE.IDLE);
   const [status, setStatus] = useState(null);
   const [error, setError] = useState(null);
@@ -36,19 +50,35 @@ export default function RemoteDesktop() {
   const [showClipboard, setShowClipboard] = useState(false);
   const containerRef = useRef(null);
 
-  // ── Credentials for krdpserver auth ──────────────────────────────
   const { user } = useAuth();
-  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
-  // Auto-fill username from session
-  useEffect(() => {
-    if (user?.username && !username) setUsername(user.username);
-  }, [user]);
-
-  // ── Fetch RDP status on mount ────────────────────────────────────
+  // Fetch VNC status on mount
   useEffect(() => {
     fetchStatus();
+
+    return () => {
+      if (rfbRef.current) {
+        try { rfbRef.current.disconnect(); } catch {}
+        rfbRef.current = null;
+      }
+    };
+  }, []);
+
+  // ResizeObserver — tell noVNC to rescale when the container resizes
+  useEffect(() => {
+    const el = displayRef.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver(() => {
+      const rfb = rfbRef.current;
+      if (rfb && rfb._display) {
+        // Force noVNC to recalculate scale
+        rfb.scaleViewport = rfb.scaleViewport; // triggers setter
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   async function fetchStatus() {
@@ -64,427 +94,285 @@ export default function RemoteDesktop() {
     }
   }
 
-  // ── Connect to remote desktop ────────────────────────────────────
   const connect = useCallback(async () => {
-    // Prevent multiple simultaneous connection attempts
     if (connectionInProgress.current) return;
-    if (!username || !password) {
-      setError('Username and password are required. krdpserver needs your Linux credentials.');
-      setState(STATE.ERROR);
-      return;
-    }
 
     connectionInProgress.current = true;
     setState(STATE.CONNECTING);
     setError(null);
 
     try {
-      // Get connection token from API
-const res = await api.post('/api/rdp/connect', {
-        width: window.innerWidth & ~1,
-        height: (window.innerHeight - 60) & ~1, 
-        dpi: Math.round(window.devicePixelRatio * 96),
-        ...(username && { username }),
-        ...(password && { password }),
-      });
-
-      const { token } = res.data;
-
-      // Build WebSocket URL — token is passed via client.connect() data
-      // parameter, NOT embedded in the tunnel URL.  guacamole-common-js
-      // always appends "?" + data to the URL, so putting the token here
-      // would result in a double-"?" URL that corrupts the token value.
       const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const wsUrl = `${wsProto}//${window.location.host}/guacamole`;
+      const wsUrl = `${wsProto}//${window.location.host}/vnc`;
 
-const tunnel = new Guacamole.WebSocketTunnel(wsUrl);
-const client = new Guacamole.Client(tunnel);
-      clientRef.current = client;
-
-      // Mount the display canvas
-      const displayEl = displayRef.current;
-      if (displayEl) {
-        displayEl.innerHTML = '';
-        const guacDisplay = client.getDisplay().getElement();
-// Force the internal canvas to 1080p
-guacDisplay.style.width = '1920px';
-guacDisplay.style.height = '1080px';
-// Use CSS to make it fit your container while maintaining aspect ratio
-guacDisplay.style.maxWidth = '100%';
-guacDisplay.style.maxHeight = '100%';
-guacDisplay.style.objectFit = 'contain'; 
-
-displayEl.appendChild(guacDisplay);
-
+      // Clear any prior canvas
+      if (displayRef.current) {
+        displayRef.current.innerHTML = '';
       }
 
-      // ── Keyboard input ───────────────────────────────────────
-      const keyboard = new Guacamole.Keyboard(document);
-      keyboard.onkeydown = (keysym) => client.sendKeyEvent(1, keysym);
-      keyboard.onkeyup = (keysym) => client.sendKeyEvent(0, keysym);
-
-      // ── Mouse input ──────────────────────────────────────────
-      const mouse = new Guacamole.Mouse(displayEl);
-      mouse.onEach(['mousedown', 'mouseup', 'mousemove'], (e) => {
-        // Scale mouse position to match the display
-        const display = client.getDisplay();
-        const scale = display.getScale();
-        const scaledState = new Guacamole.Mouse.State(
-          e.state.x / scale,
-          e.state.y / scale,
-          e.state.left,
-          e.state.middle,
-          e.state.right,
-          e.state.up,
-          e.state.down,
-        );
-        client.sendMouseState(scaledState);
+      // Initialise noVNC — it appends a <canvas> into displayRef
+      const rfb = new RFB(displayRef.current, wsUrl, {
+        credentials: { password },
       });
+      rfbRef.current = rfb;
 
-      // ── Touch input (for mobile) ─────────────────────────────
-      const touch = new Guacamole.Mouse.Touchscreen(displayEl);
-      touch.onEach(['mousedown', 'mouseup', 'mousemove'], (e) => {
-        const display = client.getDisplay();
-        const scale = display.getScale();
-        const scaledState = new Guacamole.Mouse.State(
-          e.state.x / scale,
-          e.state.y / scale,
-          e.state.left,
-          e.state.middle,
-          e.state.right,
-          e.state.up,
-          e.state.down,
-        );
-        client.sendMouseState(scaledState);
-      });
+      // Gruvbox hard-black background for letterboxing
+      rfb.background = '#1d2021';
 
-      // ── Clipboard sync (remote → local) ──────────────────────
-      client.onclipboard = (stream, mimetype) => {
-        if (mimetype === 'text/plain') {
-          let data = '';
-          const reader = new Guacamole.StringReader(stream);
-          reader.ontext = (text) => { data += text; };
-          reader.onend = () => setClipboardText(data);
-        }
-      };
-
-      // ── State change handler ─────────────────────────────────
-      client.onstatechange = (clientState) => {
-        switch (clientState) {
-          case Guacamole.Client.State.IDLE:
-            setState(STATE.IDLE);
-            break;
-          case Guacamole.Client.State.CONNECTING:
-          case Guacamole.Client.State.WAITING:
-            setState(STATE.CONNECTING);
-            break;
-          case Guacamole.Client.State.CONNECTED:
-            setState(STATE.CONNECTED);
-            connectionInProgress.current = false;
-            break;
-          case Guacamole.Client.State.DISCONNECTING:
-            setState(STATE.DISCONNECTING);
-            break;
-          case Guacamole.Client.State.DISCONNECTED:
-            setState(STATE.IDLE);
-            connectionInProgress.current = false;
-            cleanup(keyboard, mouse, touch);
-            break;
-        }
-      };
-
-      // ── Error handler ────────────────────────────────────────
-      client.onerror = (err) => {
-        console.error('Guac Error:', err);
-        setError(err.message || 'Guacamole connection error');
-        setState(STATE.ERROR);
+      // ── RFB event listeners ────────────────────────────────────
+      rfb.addEventListener('connect', () => {
+        console.log('[noVNC] connected — enabling scaleViewport');
+        rfb.scaleViewport = true;
+        rfb.resizeSession = false;
+        setState(STATE.CONNECTED);
         connectionInProgress.current = false;
-        cleanup(keyboard, mouse, touch);
-      };
+      });
 
-      // ── Auto-resize ──────────────────────────────────────────
-      const handleResize = () => {
-        if (clientRef.current && displayRef.current) {
-          const w = displayRef.current.clientWidth;
-          const h = displayRef.current.clientHeight;
-          clientRef.current.sendSize(w, h);
+      rfb.addEventListener('disconnect', (e) => {
+        console.log('[noVNC] disconnected, clean:', e.detail.clean);
+        connectionInProgress.current = false;
+        rfbRef.current = null;
+
+        if (e.detail.clean === false) {
+          setError('Connection dropped unexpectedly');
+          setState(STATE.ERROR);
+        } else {
+          setState(STATE.IDLE);
         }
-      };
-      window.addEventListener('resize', handleResize);
+      });
 
-      // Store cleanup refs
-      client._tuxCleanup = { keyboard, mouse, touch, handleResize };
+      rfb.addEventListener('securityfailure', (e) => {
+        console.error('[noVNC] security failure:', e.detail);
+        connectionInProgress.current = false;
+        rfbRef.current = null;
+        setError('VNC authentication failed — ' + (e.detail.reason || 'wrong password?'));
+        setState(STATE.ERROR);
+      });
 
-      // Connect — pass token as query-string data so the final WS URL is
-      // ws://host/guacamole?token=<encoded_token>
-client.connect(`token=${encodeURIComponent(token)}`);    } catch (err) {
-      setError(err.response?.data?.error || err.message);
-      setState(STATE.ERROR);
+      rfb.addEventListener('clipboard', (e) => {
+        setClipboardText(e.detail.text);
+      });
+    } catch (err) {
       connectionInProgress.current = false;
+      setError('Failed to initialise connection: ' + err.message);
+      setState(STATE.ERROR);
     }
-  }, [username, password]);
+  }, [password]);
 
-  // ── Disconnect ───────────────────────────────────────────────────
   const disconnect = useCallback(() => {
-    if (clientRef.current) {
-      const client = clientRef.current;
-      client.disconnect();
-      if (client._tuxCleanup) {
-        cleanup(
-          client._tuxCleanup.keyboard,
-          client._tuxCleanup.mouse,
-          client._tuxCleanup.touch,
-        );
-        window.removeEventListener('resize', client._tuxCleanup.handleResize);
-      }
-      clientRef.current = null;
+    if (rfbRef.current) {
+      try { rfbRef.current.disconnect(); } catch {}
+      rfbRef.current = null;
     }
-    connectionInProgress.current = false;
     setState(STATE.IDLE);
   }, []);
 
-  function cleanup(keyboard, mouse, touch) {
-    try { keyboard?.reset(); } catch {}
-    try { mouse?.reset(); } catch {}
-    try { touch?.reset(); } catch {}
-  }
-
-  // ── Cleanup on unmount ───────────────────────────────────────────
-  // Use an empty dep array so this only runs on true unmount, not on
-  // React StrictMode's dev-mode double-mount cycle.
-  useEffect(() => {
-    return () => {
-      if (clientRef.current) {
-        try { clientRef.current.disconnect(); } catch {}
-        clientRef.current = null;
-      }
-      connectionInProgress.current = false;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Send clipboard text to remote ────────────────────────────────
-  function sendClipboard() {
-    const client = clientRef.current;
-    if (client && clipboardText) {
-      const stream = client.createClipboardStream('text/plain');
-      const writer = new Guacamole.StringWriter(stream);
-      writer.sendText(clipboardText);
-      writer.sendEnd();
-    }
-  }
-
-  // ── Toggle fullscreen ───────────────────────────────────────────
-  function toggleFullscreen() {
+  const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen();
-      setIsFullscreen(true);
+      try {
+        await containerRef.current?.requestFullscreen();
+        setIsFullscreen(true);
+      } catch (err) {
+        console.error('Error enabling fullscreen:', err);
+      }
     } else {
-      document.exitFullscreen();
+      await document.exitFullscreen();
       setIsFullscreen(false);
     }
-  }
-
-  // ── Status badge ────────────────────────────────────────────────
-  const statusColor = {
-    [STATE.IDLE]: 'text-gb-fg4',
-    [STATE.DETECTING]: 'text-gb-aqua',
-    [STATE.CONNECTING]: 'text-gb-yellow',
-    [STATE.CONNECTED]: 'text-gb-green',
-    [STATE.DISCONNECTING]: 'text-gb-yellow',
-    [STATE.ERROR]: 'text-gb-red',
   };
 
-  // ── Render ──────────────────────────────────────────────────────
-  return (
-    <div ref={containerRef} className="flex flex-col h-full">
-      <h1 className="text-2xl font-black uppercase tracking-tight mb-4 flex items-center gap-3 text-gb-fg1">
-        <MonitorPlay size={28} className="text-gb-aqua" />
-        Remote Desktop
-        <span className={`text-sm font-normal ${statusColor[state]}`}>
-          ({state})
-        </span>
-      </h1>
+  const syncClipboard = () => {
+    if (rfbRef.current && state === STATE.CONNECTED) {
+      rfbRef.current.clipboardPasteFrom(clipboardText);
+      setShowClipboard(false);
+    }
+  };
 
-      {/* ── Toolbar ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
-        {state === STATE.CONNECTED ? (
-          <>
+  // Escape to exit fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-2rem)] p-4 w-full" ref={containerRef}>
+      {/* ── Page Header ──────────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-black uppercase tracking-tight text-gb-fg1">Remote Desktop</h1>
+
+        {/* Top-right Controls (visible when connected) */}
+        {state === STATE.CONNECTED && (
+          <div className="flex border-2 border-gb-bg3 bg-gb-bg0">
             <button
-              onClick={disconnect}
-              className="flex items-center gap-2 px-4 py-2 bg-gb-bg1 text-gb-red border-2 border-gb-red-dim hover:bg-gb-bg2 transition-colors"
+              onClick={() => setShowClipboard(!showClipboard)}
+              className="p-2 text-gb-fg4 hover:text-gb-fg1 hover:bg-gb-bg1 transition-colors"
+              title="Clipboard"
             >
-              <Power size={16} />
-              Disconnect
+              <Clipboard size={16} />
             </button>
             <button
               onClick={toggleFullscreen}
-              className="flex items-center gap-2 px-3 py-2 bg-gb-bg1 text-gb-fg2 border-2 border-gb-bg3 hover:bg-gb-bg2 transition-colors"
+              className="p-2 text-gb-fg4 hover:text-gb-fg1 hover:bg-gb-bg1 transition-colors"
+              title="Toggle Fullscreen"
             >
               {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
             </button>
+            <div className="w-px bg-gb-bg3 my-1" />
             <button
-              onClick={() => setShowClipboard(!showClipboard)}
-              className="flex items-center gap-2 px-3 py-2 bg-gb-bg1 text-gb-fg2 border-2 border-gb-bg3 hover:bg-gb-bg2 transition-colors"
+              onClick={disconnect}
+              className="p-2 text-gb-red hover:text-gb-red hover:bg-gb-bg1 transition-colors"
+              title="Disconnect"
             >
-              <Clipboard size={16} />
-              Clipboard
+              <Power size={16} />
             </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={connect}
-              disabled={state === STATE.CONNECTING || state === STATE.DETECTING || !username || !password}
-              className="flex items-center gap-2 px-4 py-2 bg-gb-aqua text-gb-bg0-hard font-black uppercase tracking-wide border-2 border-gb-aqua hover:bg-gb-aqua-dim disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {state === STATE.CONNECTING ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Monitor size={16} />
-              )}
-              {state === STATE.CONNECTING ? 'Connecting…' : 'Connect to Desktop'}
-            </button>
-            <button
-              onClick={fetchStatus}
-              disabled={state === STATE.DETECTING}
-              className="flex items-center gap-2 px-3 py-2 bg-gb-bg1 text-gb-fg2 border-2 border-gb-bg3 hover:bg-gb-bg2 transition-colors"
-            >
-              <RefreshCw size={16} className={state === STATE.DETECTING ? 'animate-spin' : ''} />
-              Refresh
-            </button>
-          </>
+          </div>
         )}
       </div>
 
-      {/* ── Clipboard panel ────────────────────────────────────── */}
+      {/* ── Floating Clipboard Pane ──────────────────────────────── */}
       {showClipboard && state === STATE.CONNECTED && (
-        <div className="mb-3 bg-gb-bg0 border-2 border-gb-bg2 p-4">
-          <label className="text-sm text-gb-fg3 mb-1 block font-semibold">
-            Clipboard (paste here to send to remote, or copy from remote)
-          </label>
-          <div className="flex gap-2">
-            <textarea
-              value={clipboardText}
-              onChange={(e) => setClipboardText(e.target.value)}
-              className="flex-1 bg-gb-bg1 text-gb-fg1 px-3 py-2 text-sm resize-none border-2 border-gb-bg3 focus:border-gb-aqua focus:outline-none"
-              rows={2}
-              placeholder="Clipboard text…"
-            />
+        <div className="absolute top-24 right-8 z-50 w-80 bg-gb-bg0 border-2 border-gb-bg3 p-4 shadow-xl">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-sm font-black uppercase text-gb-fg1">Remote Clipboard</h3>
             <button
-              onClick={sendClipboard}
-              className="px-4 py-2 bg-gb-bg1 text-gb-aqua border-2 border-gb-aqua-dim hover:bg-gb-bg2 transition-colors self-end"
+              onClick={() => setShowClipboard(false)}
+              className="text-gb-fg4 hover:text-gb-fg1 transition-colors"
             >
-              Send
+              &times;
             </button>
           </div>
+          <textarea
+            value={clipboardText}
+            onChange={(e) => setClipboardText(e.target.value)}
+            className="w-full h-32 bg-gb-bg1 text-gb-fg1 text-sm p-3 border-2 border-gb-bg3 focus:border-gb-aqua outline-none mb-3 resize-none placeholder:text-gb-bg4"
+            placeholder="Paste text here to send it to the remote session..."
+          />
+          <button
+            onClick={syncClipboard}
+            className="w-full py-2 text-sm font-bold border-2 border-gb-aqua-dim bg-gb-aqua text-gb-bg0-hard hover:opacity-90 transition-colors"
+          >
+            Send to Remote
+          </button>
         </div>
       )}
 
-      {/* ── Error display ──────────────────────────────────────── */}
-      {error && (
-        <div className="mb-3 flex items-start gap-3 bg-gb-bg1 border-2 border-gb-red-dim p-4">
-          <AlertCircle size={20} className="text-gb-red mt-0.5 shrink-0" />
-          <div>
-            <p className="text-gb-red font-bold">Connection Error</p>
-            <p className="text-gb-red-dim text-sm mt-1">{error}</p>
-          </div>
-        </div>
-      )}
+      {/* ── Main Content Area ────────────────────────────────────── */}
+      <main className="flex-1 min-h-0 bg-gb-bg0 border-2 border-gb-bg2 overflow-hidden relative">
 
-      {/* ── Status panel (when idle) ───────────────────────────── */}
-      {state !== STATE.CONNECTED && status && (
-        <div className="mb-3 bg-gb-bg0 border-2 border-gb-bg2 p-5">
-          <h2 className="text-lg font-bold text-gb-fg0 mb-3">Desktop Environment</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-gb-fg4 text-xs uppercase tracking-wide font-semibold">Desktop</span>
-              <p className="text-gb-fg0 font-bold">{status.desktop?.desktop || '—'}</p>
-            </div>
-            <div>
-              <span className="text-gb-fg4 text-xs uppercase tracking-wide font-semibold">Session</span>
-              <p className="text-gb-fg0 font-bold">{status.desktop?.sessionType || '—'}</p>
-            </div>
-            <div>
-              <span className="text-gb-fg4 text-xs uppercase tracking-wide font-semibold">RDP Server</span>
-              <p className={`font-bold ${status.status === 'running' ? 'text-gb-green' : 'text-gb-yellow'}`}>
-                {status.status === 'running'
-                  ? `${status.provider?.name} (:${status.provider?.port})`
-                  : status.status}
-              </p>
-            </div>
-            <div>
-              <span className="text-gb-fg4 text-xs uppercase tracking-wide font-semibold">Guacamole Proxy</span>
-              <p className={`font-bold ${status.guacProxy === 'ready' ? 'text-gb-green' : 'text-gb-red'}`}>
-                {status.guacProxy}
-              </p>
-            </div>
-          </div>
-          {status.message && (
-            <p className="text-gb-yellow-dim text-sm mt-3">{status.message}</p>
-          )}
-        </div>
-      )}
+        {/* noVNC canvas — ALWAYS in the DOM so it has real dimensions */}
+        <div
+          ref={displayRef}
+          className="absolute inset-0"
+          style={{ background: '#1d2021' }}
+        />
 
-      {/* ── Credentials (when idle/error and krdpserver needs auth) */}
-      {state !== STATE.CONNECTED && status?.status === 'running' && (
-        <div className="mb-3 bg-gb-bg0 border-2 border-gb-bg2 p-5">
-          <h2 className="text-sm font-bold text-gb-fg3 mb-3 uppercase tracking-wide">
-            Login Credentials (required)
-          </h2>
-          <div className="flex gap-3 items-end flex-wrap">
-            <div className="flex-1 min-w-40">
-              <label className="text-xs text-gb-fg4 mb-1 block font-semibold uppercase tracking-wide">Username <span className="text-gb-red">*</span></label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={status?.desktop?.desktop === 'KDE' ? 'joseph' : 'username'}
-                autoComplete="username"
-                className="w-full bg-gb-bg1 text-gb-fg1 px-3 py-2 text-sm border-2 border-gb-bg3 focus:border-gb-aqua focus:outline-none"
-              />
-            </div>
-            <div className="flex-1 min-w-40">
-              <label className="text-xs text-gb-fg4 mb-1 block font-semibold uppercase tracking-wide">Password <span className="text-gb-red">*</span></label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                className="w-full bg-gb-bg1 text-gb-fg1 px-3 py-2 text-sm border-2 border-gb-bg3 focus:border-gb-aqua focus:outline-none"
-              />
-            </div>
-          </div>
-          <p className="text-xs text-gb-fg4 mt-2">
-            Your Linux login credentials are required — krdpserver uses them for RDP authentication.
-          </p>
-        </div>
-      )}
-
-      {/* ── Remote display canvas ──────────────────────────────── */}
-      <div
-        ref={displayRef}
-        className={`flex-1 bg-gb-bg0-hard border-2 border-gb-bg2 overflow-hidden ${
-          state === STATE.CONNECTED ? 'cursor-none' : ''
-        }`}
-        style={{
-          minHeight: state === STATE.CONNECTED ? 'calc(100vh - 200px)' : '300px',
-        }}
-      >
+        {/* Overlay: covers the canvas when not connected */}
         {state !== STATE.CONNECTED && (
-          <div className="flex items-center justify-center h-full text-gb-bg4">
-            <div className="text-center">
-              <MonitorPlay size={64} className="mx-auto mb-4 opacity-30" />
-              <p className="text-lg">Click "Connect to Desktop" to start</p>
-              <p className="text-sm mt-1 text-gb-bg3">
-                Shares your current {status?.desktop?.desktop || 'Linux'} Wayland session
-              </p>
-            </div>
+          <div className="absolute inset-0 z-10 bg-gb-bg0 flex flex-col justify-center items-center">
+
+            {/* Detecting spinner */}
+            {state === STATE.DETECTING && (
+              <div className="flex flex-col items-center text-gb-fg4">
+                <Loader2 size={28} className="animate-spin text-gb-aqua mb-4" />
+                <p className="text-sm">Detecting display capabilities...</p>
+              </div>
+            )}
+
+            {/* Pre-connection Form */}
+            {(state === STATE.IDLE || state === STATE.ERROR) && status && (
+              <div className="w-full max-w-sm p-6 bg-gb-bg0 border-2 border-gb-bg3 shadow-xl">
+                <div className="mb-6 text-center">
+                  <div className="inline-flex items-center justify-center w-14 h-14 bg-gb-bg1 border-2 border-gb-bg3 mb-4">
+                    <Monitor size={28} className="text-gb-aqua" />
+                  </div>
+                  <h2 className="text-lg font-black uppercase tracking-tight text-gb-fg0 mb-2">Connect to Desktop</h2>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono border-2 border-gb-blue-dim text-gb-blue">
+                    {status.desktop?.desktop} ({status.desktop?.sessionType})
+                  </span>
+                </div>
+
+                <form onSubmit={(e) => { e.preventDefault(); connect(); }} className="space-y-4">
+                  {status.status === 'unavailable' ? (
+                    <div className="flex items-center gap-2 text-gb-orange bg-gb-bg1 border-2 border-gb-orange-dim p-3 text-sm">
+                      <AlertCircle size={16} className="shrink-0" />
+                      No VNC server found. Install krfb and start it.
+                    </div>
+                  ) : status.status === 'not-running' ? (
+                    <div className="flex items-center gap-2 text-gb-orange bg-gb-bg1 border-2 border-gb-orange-dim p-3 text-sm">
+                      <AlertCircle size={16} className="shrink-0" />
+                      {status.message}
+                    </div>
+                  ) : (
+                    <>
+                      {/* krfb config badge */}
+                      {status.krfbConfig && (
+                        <div className="flex items-center gap-2 flex-wrap text-xs font-mono text-gb-fg4 mb-2">
+                          <span className="px-1.5 py-0.5 bg-gb-bg1 border border-gb-bg3">
+                            port {status.krfbConfig.port}
+                          </span>
+                          <span className="px-1.5 py-0.5 bg-gb-bg1 border border-gb-bg3">
+                            fb: {status.krfbConfig.framebuffer}
+                          </span>
+                          {status.krfbConfig.unattendedAccess && (
+                            <span className="px-1.5 py-0.5 bg-gb-bg1 border border-gb-green-dim text-gb-green">
+                              unattended
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-xs font-bold text-gb-fg3 uppercase mb-1">
+                          VNC Password
+                        </label>
+                        <input
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full px-3 py-2 bg-gb-bg1 border-2 border-gb-bg3 text-gb-fg1 text-sm focus:border-gb-aqua outline-none transition-colors placeholder:text-gb-bg4"
+                          placeholder="Leave blank if none"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gb-aqua text-gb-bg0-hard font-black uppercase tracking-wide border-2 border-gb-aqua hover:bg-gb-aqua-dim transition-colors"
+                      >
+                        <MonitorPlay size={16} />
+                        Connect via noVNC
+                      </button>
+                    </>
+                  )}
+                </form>
+              </div>
+            )}
+
+            {/* Connecting spinner */}
+            {state === STATE.CONNECTING && (
+              <div className="flex flex-col items-center text-gb-fg4">
+                <Loader2 size={28} className="animate-spin text-gb-aqua mb-4" />
+                <p className="text-sm">Negotiating VNC handshake...</p>
+              </div>
+            )}
           </div>
         )}
-      </div>
+
+        {/* Error banner — always on top */}
+        {error && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 text-gb-red bg-gb-bg1 border-2 border-gb-red-dim px-4 py-3 z-20 mx-4 max-w-xl">
+            <AlertCircle size={16} className="shrink-0" />
+            <p className="text-sm">{error}</p>
+            <button onClick={fetchStatus} className="p-1 hover:bg-gb-bg2 transition-colors">
+              <RefreshCw size={14} />
+            </button>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
