@@ -6,7 +6,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Terminal from './pages/Terminal';
 import RemoteDesktop from './pages/RemoteDesktop';
-import Storage from './pages/Storage';
 import Services from './pages/Services';
 import Disks from './pages/Disks';
 import Containers from './pages/Containers';
@@ -71,7 +70,6 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/terminal" element={<Terminal />} />
               <Route path="/rdp" element={<RemoteDesktop />} />
-              <Route path="/storage" element={<Storage />} />
               <Route path="/disks" element={<Disks />} />
               <Route path="/services" element={<Services />} />
               <Route path="/containers" element={<Containers />} />

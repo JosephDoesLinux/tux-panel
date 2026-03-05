@@ -1,5 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import fs from 'fs';
+import { run } from '../utils/commandRunner';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -8,10 +10,59 @@ const router = Router();
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
+// ── Gather a concise system snapshot (cached for 5 minutes) ──────────
+let cachedSysInfo: string | null = null;
+let cacheExpiry = 0;
+
+async function getSystemSnapshot(): Promise<string> {
+  if (cachedSysInfo && Date.now() < cacheExpiry) return cachedSysInfo;
+
+  const results = await Promise.allSettled([
+    run('hostnamectl'),
+    run('uname'),
+    run('lscpu'),
+    run('free'),
+    run('df'),
+    run('lsblk'),
+    run('ipAddr'),
+    run('failedUnits'),
+  ]);
+
+  const lines: string[] = ['=== SYSTEM INFORMATION ==='];
+
+  const labels = ['Hostnamectl', 'Kernel', 'CPU', 'Memory', 'Disk Usage', 'Block Devices', 'Network', 'Failed Units'];
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled' && r.value.stdout.trim()) {
+      lines.push(`\n--- ${labels[i]} ---\n${r.value.stdout.trim()}`);
+    }
+  });
+
+  // Also read /etc/os-release if available
+  try {
+    const osRel = fs.readFileSync('/etc/os-release', 'utf8').trim();
+    lines.push(`\n--- OS Release ---\n${osRel}`);
+  } catch { /* not available */ }
+
+  lines.push('\n=== END SYSTEM INFORMATION ===');
+  cachedSysInfo = lines.join('\n');
+  cacheExpiry = Date.now() + 5 * 60 * 1000;
+  return cachedSysInfo;
+}
+
 const SYSTEM_INSTRUCTION = `You are TuxPanel AI, an expert Linux system administration assistant integrated into a web-based dashboard called TuxPanel.
 Your job is to help the user manage their Linux server, troubleshoot issues, write bash scripts, explain systemd services, and manage Docker containers.
-Keep your answers concise, accurate, and formatted in Markdown. If the user asks for a command, provide the exact command.
-Assume the user is running a modern Linux distribution (like Fedora or Ubuntu).`;
+
+FORMATTING RULES — follow these strictly:
+• Use fenced code blocks (\`\`\`bash … \`\`\`) ONLY for actual commands, scripts, config snippets, or terminal output the user would copy/paste.
+• Never wrap explanatory text, headings, or emphasis inside code fences.
+• Use inline \`backticks\` only for file paths, flags, package names, or short identifiers (e.g. \`/etc/fstab\`, \`--no-pager\`, \`systemctl\`).
+• For emphasis use **bold** or *italic* in normal prose — never use them inside code blocks.
+• Use Markdown bullet lists (- item) or numbered lists (1. item) for step-by-step instructions.
+• Keep answers concise and well-structured. Prefer short paragraphs over walls of text.
+• If the user asks for a command, give the exact command in a fenced code block.
+
+You may receive system information about the user's server at the start of the conversation. Use it to tailor your answers (e.g. correct package manager, init system, kernel version, available memory).
+Assume a modern Linux distribution unless the system info says otherwise.`;
 
 // ── POST /api/ai/chat ────────────────────────────────────────────────
 router.post('/chat', async (req: Request, res: Response, next: NextFunction) => {
@@ -28,9 +79,25 @@ router.post('/chat', async (req: Request, res: Response, next: NextFunction) => 
     // Convert messages to Gemini format
     // Gemini requires the first message in history to be from the 'user'
     // If the first message is from the assistant (e.g. our greeting), we skip it
-    const history = messages
-      .filter((msg: any, index: number) => !(index === 0 && msg.role === 'assistant'))
-      .map((msg: any) => ({
+    const filtered = messages
+      .filter((msg: any, index: number) => !(index === 0 && msg.role === 'assistant'));
+
+    // On the first user message, prepend a system snapshot so the AI
+    // knows about the server it's helping with
+    const isFirstExchange = filtered.length === 1 && filtered[0].role === 'user';
+    if (isFirstExchange) {
+      try {
+        const snapshot = await getSystemSnapshot();
+        filtered[0] = {
+          ...filtered[0],
+          content: `[The following is automatic system context — do not repeat it back, just use it to inform your answers.]\n${snapshot}\n\n[User message follows]\n${filtered[0].content}`,
+        };
+      } catch (e: any) {
+        logger.warn(`Failed to gather system info for AI context: ${e.message}`);
+      }
+    }
+
+    const history = filtered.map((msg: any) => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content }],
       }));

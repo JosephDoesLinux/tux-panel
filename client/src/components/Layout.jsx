@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Monitor, TerminalSquare, MonitorPlay, LogOut, User, Sun, Moon, Power, HardDrive, Cog, Box, Users, ChevronDown, Wrench, Disc } from 'lucide-react';
+import { Monitor, TerminalSquare, MonitorPlay, LogOut, User, Sun, Moon, Power, HardDrive, Cog, Box, Shield, ChevronDown, Wrench, Disc } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { TerminalProvider } from '../contexts/TerminalContext';
@@ -8,26 +8,17 @@ import AIChatbot from './AIChatbot';
 
 const NAV_ITEMS = [
   { to: '/', icon: Monitor, label: 'Dashboard' },
-  { to: '/storage', icon: HardDrive, label: 'Storage' },
   {
-    to: '/disks', icon: Disc, label: 'Disks',
+    to: '/disks', icon: HardDrive, label: 'Storage',
     children: [
+      { tab: 'shares', label: 'Shares' },
+      { tab: 'smb', label: 'SMB Config' },
+      { tab: 'nfs', label: 'NFS Config' },
+      { tab: 'ftp', label: 'FTP Config' },
       { tab: 'disks', label: 'Disks & Partitions' },
       { tab: 'subvolumes', label: 'Subvolumes' },
       { tab: 'snapshots', label: 'Snapshots' },
       { tab: 'mounts', label: 'Mounts' },
-      { tab: 'shares', label: 'Shares' },
-    ],
-  },
-  {
-    to: '/services', icon: Cog, label: 'Services',
-    children: [
-      { tab: 'services', label: 'Systemd Units' },
-      { tab: 'processes', label: 'Processes' },
-      { tab: 'ssh', label: 'SSH Config' },
-      { tab: 'smb', label: 'SMB Config' },
-      { tab: 'nfs', label: 'NFS Config' },
-      { tab: 'ftp', label: 'FTP Config' },
     ],
   },
   {
@@ -38,7 +29,15 @@ const NAV_ITEMS = [
     ],
   },
   {
-    to: '/accounts', icon: Users, label: 'Accounts',
+    to: '/services', icon: Cog, label: 'Services',
+    children: [
+      { tab: 'services', label: 'Systemd Units' },
+      { tab: 'processes', label: 'Processes' },
+      { tab: 'ssh', label: 'SSH Config' },
+    ],
+  },
+  {
+    to: '/accounts', icon: Shield, label: 'Security',
     children: [
       { tab: 'users', label: 'Users' },
       { tab: 'groups', label: 'Groups' },

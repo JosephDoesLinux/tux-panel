@@ -4,8 +4,10 @@ import {
   HardDrive, Layers, Camera, Database, Share2,
   RefreshCw, Activity, AlertCircle, Search,
   ChevronDown, ChevronUp, Trash2, Plus, Check, X,
+  FolderOpen, Server, Globe,
 } from 'lucide-react';
 import api from '../lib/api';
+import ConfigEditorTab from '../components/ConfigEditorTab';
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
 
@@ -297,11 +299,14 @@ function CreateNfsExportModal({ onClose, onCreated }) {
 /* ── Tab Definition ──────────────────────────────────────────────── */
 
 const TABS = [
-  { key: 'disks',       label: 'Disks & Partitions', icon: HardDrive },
+  { key: 'shares',      label: 'Shares',             icon: Share2 },
+  { key: 'smb',         label: 'SMB Config',         icon: FolderOpen, dividerBefore: true },
+  { key: 'nfs',         label: 'NFS Config',         icon: Server },
+  { key: 'ftp',         label: 'FTP Config',         icon: Globe },
+  { key: 'disks',       label: 'Disks & Partitions', icon: HardDrive, dividerBefore: true },
   { key: 'subvolumes',  label: 'Subvolumes',         icon: Layers },
   { key: 'snapshots',   label: 'Snapshots',          icon: Camera },
   { key: 'mounts',      label: 'Mounts',             icon: Database },
-  { key: 'shares',      label: 'Shares',             icon: Share2 },
 ];
 
 /* ── DisksTab ────────────────────────────────────────────────────── */
@@ -958,7 +963,7 @@ function ServiceStatus({ label, active }) {
 
 export default function Disks() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, _setTab] = useState(() => searchParams.get('tab') || 'disks');
+  const [tab, _setTab] = useState(() => searchParams.get('tab') || 'shares');
   const setTab = (t) => { _setTab(t); setSearchParams({ tab: t }, { replace: true }); };
 
   useEffect(() => {
@@ -967,37 +972,42 @@ export default function Disks() {
   }, [searchParams]);
 
   const TAB_COMPONENTS = {
+    shares: SharesTab,
+    smb: () => <ConfigEditorTab configName="smb" />,
+    nfs: () => <ConfigEditorTab configName="nfs" />,
+    ftp: () => <ConfigEditorTab configName="ftp" />,
     disks: DisksTab,
     subvolumes: SubvolumesTab,
     snapshots: SnapshotsTab,
     mounts: MountsTab,
-    shares: SharesTab,
   };
 
-  const ActiveTab = TAB_COMPONENTS[tab] || DisksTab;
+  const ActiveTab = TAB_COMPONENTS[tab] || SharesTab;
 
   return (
     <div>
       <h1 className="text-2xl font-black uppercase tracking-tight mb-6 text-gb-fg1">
-        Disks & Storage
+        Storage
       </h1>
 
       {/* Tab bar */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`px-4 py-2 text-sm font-bold uppercase border-2 transition-colors ${
-              tab === key
-                ? 'bg-gb-bg1 text-gb-aqua border-gb-aqua-dim'
-                : 'bg-gb-bg0 text-gb-fg4 border-gb-bg3 hover:text-gb-fg1 hover:bg-gb-bg1'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <Icon size={16} /> {label}
-            </span>
-          </button>
+        {TABS.map(({ key, label, icon: Icon, dividerBefore }) => (
+          <div key={key} className="flex items-center gap-2">
+            {dividerBefore && <div className="w-px h-8 bg-gb-bg3 mx-1" />}
+            <button
+              onClick={() => setTab(key)}
+              className={`px-4 py-2 text-sm font-bold uppercase border-2 transition-colors ${
+                tab === key
+                  ? 'bg-gb-bg1 text-gb-aqua border-gb-aqua-dim'
+                  : 'bg-gb-bg0 text-gb-fg4 border-gb-bg3 hover:text-gb-fg1 hover:bg-gb-bg1'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Icon size={16} /> {label}
+              </span>
+            </button>
+          </div>
         ))}
       </div>
 
