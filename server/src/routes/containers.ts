@@ -3,10 +3,22 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import validate from '../middleware/validate';
 import { run  } from '../utils/commandRunner';
 import logger from '../utils/logger';
 
 const router = Router();
+
+// ── Zod schemas ─────────────────────────────────────────────────────────
+const containerActionSchema = z.object({
+  id: z.string().regex(/^[a-zA-Z0-9_.-]+$/, 'Invalid container ID'),
+  action: z.enum(['start', 'stop', 'restart', 'rm', 'pause', 'unpause']),
+});
+
+const pullImageSchema = z.object({
+  image: z.string().regex(/^[a-zA-Z0-9._/:-]+$/, 'Invalid image name'),
+});
 
 // ── GET /api/containers/list ─────────────────────────────────────────
 // Returns all containers (running + stopped)
@@ -47,26 +59,11 @@ router.get('/images', async (_req: Request, res: Response, next: NextFunction) =
 });
 
 // ── POST /api/containers/action ──────────────────────────────────────
-// Start, stop, restart, remove a container
-router.post('/action', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/action', validate(containerActionSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id, action } = req.body;
 
-    if (!id || !action) {
-      return res.status(400).json({ error: 'id and action are required' });
-    }
-
-    // Validate container ID (hex string or name)
-    if (!/^[a-zA-Z0-9_.-]+$/.test(id)) {
-      return res.status(400).json({ error: 'Invalid container ID' });
-    }
-
-    const allowed = ['start', 'stop', 'restart', 'rm', 'pause', 'unpause'];
-    if (!allowed.includes(action)) {
-      return res.status(400).json({ error: `Invalid action. Allowed: ${allowed.join(', ')}` });
-    }
-
-    logger.warn(`Container action: ${action} ${id}`);
+    logger.warn(`Container action: ${action} ${id} [user: ${req.user?.sub || 'unknown'}]`);
     const result = await run('dockerAction', [action, id]);
     res.json({ ok: true, output: result.stdout });
   } catch (err) {
@@ -110,20 +107,11 @@ router.get('/stats', async (_req: Request, res: Response, next: NextFunction) =>
 });
 
 // ── POST /api/containers/pull ────────────────────────────────────────
-// Pull an image
-router.post('/pull', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/pull', validate(pullImageSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { image } = req.body;
-    if (!image) {
-      return res.status(400).json({ error: 'image is required' });
-    }
 
-    // Basic validation
-    if (!/^[a-zA-Z0-9._/:-]+$/.test(image)) {
-      return res.status(400).json({ error: 'Invalid image name' });
-    }
-
-    logger.info(`Pulling image: ${image}`);
+    logger.info(`Pulling image: ${image} [user: ${req.user?.sub || 'unknown'}]`);
     const result = await run('dockerPull', [image]);
     res.json({ ok: true, output: result.stdout });
   } catch (err) {

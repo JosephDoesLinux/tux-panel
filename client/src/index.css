@@ -4,6 +4,7 @@
 /* Dark mode (default) */
 :root,
 [data-theme="dark"] {
+  --wallpaper: url('/wallpaper-dark.png');
   --gb-bg0-hard: #1d2021;
   --gb-bg0: #282828;
   --gb-bg1: #3c3836;
@@ -33,6 +34,7 @@
 
 /* Light mode */
 [data-theme="light"] {
+  --wallpaper: url('/wallpaper-light.png');
   --gb-bg0-hard: #f9f5d7;
   --gb-bg0: #fbf1c7;
   --gb-bg1: #ebdbb2;
@@ -110,4 +112,25 @@ html, body, #root {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--gb-bg4);
+}
+
+/* ── Wallpaper background ──────────────────────────────────────────── */
+.wallpaper-bg {
+  background-image: var(--wallpaper);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* Make card backgrounds semi-transparent so the wallpaper shows through */
+.wallpaper-bg {
+  --color-gb-bg0: color-mix(in srgb, var(--gb-bg0) 78%, transparent);
+  --color-gb-bg1: color-mix(in srgb, var(--gb-bg1) 70%, transparent);
+}
+
+/* Frosted glass panel — used for sidebar & header over the wallpaper */
+.glass-panel {
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
 }

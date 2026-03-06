@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
   HardDrive, Layers, Camera, Database, Share2,
   RefreshCw, Activity, AlertCircle, Search,
@@ -7,40 +6,12 @@ import {
   FolderOpen, Server, Globe,
 } from 'lucide-react';
 import api from '../lib/api';
+import { formatBytes } from '../lib/utils';
+import useTabSync from '../hooks/useTabSync';
 import ConfigEditorTab from '../components/ConfigEditorTab';
-
-/* ── Helpers ─────────────────────────────────────────────────────── */
-
-function formatBytes(bytes) {
-  if (!bytes && bytes !== 0) return '—';
-  const num = typeof bytes === 'string' ? parseInt(bytes, 10) : bytes;
-  if (num === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(num) / Math.log(1024));
-  return `${(num / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
-}
-
-function UsageBar({ percent, color = 'bg-gb-aqua' }) {
-  const num = parseInt(percent, 10) || 0;
-  const barColor = num > 90 ? 'bg-gb-red' : num > 70 ? 'bg-gb-yellow' : color;
-  return (
-    <div className="w-full h-2 bg-gb-bg2">
-      <div className={`h-full ${barColor} transition-all`} style={{ width: `${num}%` }} />
-    </div>
-  );
-}
-
-function SectionHeader({ icon: Icon, title, color = 'text-gb-aqua', children }) {
-  return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <Icon size={20} className={color} />
-        <h2 className="text-lg font-black uppercase tracking-tight text-gb-fg1">{title}</h2>
-      </div>
-      {children}
-    </div>
-  );
-}
+import SectionHeader from '../components/shared/SectionHeader';
+import UsageBar from '../components/shared/UsageBar';
+import ConfirmModal from '../components/shared/ConfirmModal';
 
 /* ── Modals ──────────────────────────────────────────────────────── */
 
@@ -679,6 +650,7 @@ function MountsTab() {
   const [search, setSearch] = useState('');
   const [showMount, setShowMount] = useState(false);
   const [error, setError] = useState(null);
+  const [unmountConfirm, setUnmountConfirm] = useState(null);
 
   const fetch_ = useCallback(async () => {
     setLoading(true);
@@ -692,7 +664,7 @@ function MountsTab() {
   useEffect(() => { fetch_(); }, [fetch_]);
 
   async function handleUnmount(target) {
-    if (!confirm(`Unmount ${target}?`)) return;
+    setUnmountConfirm(null);
     try {
       await api.delete('/api/disks/mounts', { data: { target } });
       fetch_();
@@ -771,7 +743,7 @@ function MountsTab() {
                   </td>
                   <td className="px-4 py-2.5 text-gb-fg4 font-mono text-xs max-w-md truncate">{m.options}</td>
                   <td className="px-4 py-2.5 text-center">
-                    <button onClick={() => handleUnmount(m.target)}
+                    <button onClick={() => setUnmountConfirm(m.target)}
                       className="p-1 text-gb-fg4 hover:text-gb-red transition-colors" title="Unmount">
                       <Trash2 size={14} />
                     </button>
@@ -784,6 +756,16 @@ function MountsTab() {
       )}
 
       {showMount && <MountModal onClose={() => setShowMount(false)} onCreated={() => { setShowMount(false); fetch_(); }} />}
+
+      <ConfirmModal
+        open={!!unmountConfirm}
+        title={`Unmount ${unmountConfirm}?`}
+        message="This will detach the filesystem from the mount point."
+        confirmText="Unmount"
+        variant="warning"
+        onConfirm={() => handleUnmount(unmountConfirm)}
+        onCancel={() => setUnmountConfirm(null)}
+      />
     </div>
   );
 }
@@ -796,6 +778,7 @@ function SharesTab() {
   const [showSmbCreate, setShowSmbCreate] = useState(false);
   const [showNfsCreate, setShowNfsCreate] = useState(false);
   const [error, setError] = useState(null);
+  const [deleteConfirmShare, setDeleteConfirmShare] = useState(null); // { type: 'smb'|'nfs', key: string }
 
   const fetch_ = useCallback(async () => {
     setLoading(true);
@@ -809,7 +792,7 @@ function SharesTab() {
   useEffect(() => { fetch_(); }, [fetch_]);
 
   async function handleDeleteSmb(name) {
-    if (!confirm(`Delete Samba share [${name}]?`)) return;
+    setDeleteConfirmShare(null);
     try {
       await api.delete('/api/disks/shares/smb', { data: { name } });
       fetch_();
@@ -817,7 +800,7 @@ function SharesTab() {
   }
 
   async function handleDeleteNfs(path) {
-    if (!confirm(`Delete NFS export ${path}?`)) return;
+    setDeleteConfirmShare(null);
     try {
       await api.delete('/api/disks/shares/nfs', { data: { path } });
       fetch_();
@@ -869,7 +852,7 @@ function SharesTab() {
                     <td className="px-4 py-2.5 text-center">{s.guestOk ? <Check size={16} className="text-gb-orange mx-auto" /> : <X size={16} className="text-gb-fg4 mx-auto" />}</td>
                     <td className="px-4 py-2.5 text-gb-fg3">{s.validUsers || 'all'}</td>
                     <td className="px-4 py-2.5 text-center">
-                      <button onClick={() => handleDeleteSmb(s.name)} className="p-1 text-gb-fg4 hover:text-gb-red transition-colors" title="Delete share">
+                      <button onClick={() => setDeleteConfirmShare({ type: 'smb', key: s.name })} className="p-1 text-gb-fg4 hover:text-gb-red transition-colors" title="Delete share">
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -911,7 +894,7 @@ function SharesTab() {
                     <td className="px-4 py-2.5 text-gb-fg1 font-mono">{e.path}</td>
                     <td className="px-4 py-2.5 text-gb-fg3 font-mono">{e.clients}</td>
                     <td className="px-4 py-2.5 text-center">
-                      <button onClick={() => handleDeleteNfs(e.path)} className="p-1 text-gb-fg4 hover:text-gb-red transition-colors" title="Delete export">
+                      <button onClick={() => setDeleteConfirmShare({ type: 'nfs', key: e.path })} className="p-1 text-gb-fg4 hover:text-gb-red transition-colors" title="Delete export">
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -928,6 +911,16 @@ function SharesTab() {
 
       {showSmbCreate && <CreateSmbShareModal onClose={() => setShowSmbCreate(false)} onCreated={() => { setShowSmbCreate(false); fetch_(); }} />}
       {showNfsCreate && <CreateNfsExportModal onClose={() => setShowNfsCreate(false)} onCreated={() => { setShowNfsCreate(false); fetch_(); }} />}
+
+      <ConfirmModal
+        open={!!deleteConfirmShare}
+        title={deleteConfirmShare?.type === 'smb' ? `Delete Samba share [${deleteConfirmShare?.key}]?` : `Delete NFS export ${deleteConfirmShare?.key}?`}
+        message="This action cannot be undone."
+        confirmText="Delete"
+        variant="danger"
+        onConfirm={() => deleteConfirmShare?.type === 'smb' ? handleDeleteSmb(deleteConfirmShare.key) : handleDeleteNfs(deleteConfirmShare.key)}
+        onCancel={() => setDeleteConfirmShare(null)}
+      />
     </div>
   );
 }
@@ -962,14 +955,8 @@ function ServiceStatus({ label, active }) {
 /* ── Main Disks Page ─────────────────────────────────────────────── */
 
 export default function Disks() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, _setTab] = useState(() => searchParams.get('tab') || 'shares');
-  const setTab = (t) => { _setTab(t); setSearchParams({ tab: t }, { replace: true }); };
-
-  useEffect(() => {
-    const t = searchParams.get('tab');
-    if (t && TABS.some((tb) => tb.key === t)) _setTab(t);
-  }, [searchParams]);
+  const VALID_TAB_KEYS = TABS.map((t) => t.key);
+  const [tab, setTab] = useTabSync(VALID_TAB_KEYS, 'shares');
 
   const TAB_COMPONENTS = {
     shares: SharesTab,

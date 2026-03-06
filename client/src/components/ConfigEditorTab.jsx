@@ -47,6 +47,17 @@ export default function ConfigEditorTab({ configName }) {
 
   useEffect(() => { fetchConfig(); }, [fetchConfig]);
 
+  // ── Warn before leaving with unsaved changes ────────────────────
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
   // Simple key-value parser for sshd_config, vsftpd.conf, smb.conf
   const parseKV = (text) => {
     const lines = text.split('\n');
@@ -81,8 +92,8 @@ export default function ConfigEditorTab({ configName }) {
 
   const deleteKV = (lineIdx) => {
     const lines = content.split('\n');
-    lines.splice(lineIdx, 1);
-    setContent(lines.join('\n'));
+    const updated = lines.filter((_, i) => i !== lineIdx);
+    setContent(updated.join('\n'));
     setDirty(true);
   };
 
@@ -286,12 +297,12 @@ export default function ConfigEditorTab({ configName }) {
                         {field.type === 'toggle' ? (
                           <button
                             onClick={() => setSetting(field.key, val === field.on ? field.off : field.on)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                              val === field.on ? 'bg-gb-green' : 'bg-gb-bg3'
+                            className={`relative inline-flex h-6 w-11 items-center border-2 transition-colors ${
+                              val === field.on ? 'bg-gb-green border-gb-green-dim' : 'bg-gb-bg3 border-gb-bg4'
                             }`}
                           >
-                            <span className={`inline-block h-4 w-4 transform rounded-full bg-gb-bg0 transition-transform ${
-                              val === field.on ? 'translate-x-6' : 'translate-x-1'
+                            <span className={`inline-block h-4 w-4 transform bg-gb-bg0 transition-transform ${
+                              val === field.on ? 'translate-x-5' : 'translate-x-0.5'
                             }`} />
                           </button>
                         ) : field.type === 'select' ? (

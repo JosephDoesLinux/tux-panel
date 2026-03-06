@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Play,
@@ -16,20 +15,9 @@ import {
   MemoryStick,
 } from 'lucide-react';
 import api from '../lib/api';
-
-/* ── Helpers ─────────────────────────────────────────────────────── */
-
-function SectionHeader({ icon: Icon, title, color = 'text-gb-aqua', children }) {
-  return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <Icon size={20} className={color} />
-        <h2 className="text-lg font-black uppercase tracking-tight text-gb-fg1">{title}</h2>
-      </div>
-      {children}
-    </div>
-  );
-}
+import { formatBytes } from '../lib/utils';
+import useTabSync from '../hooks/useTabSync';
+import SectionHeader from '../components/shared/SectionHeader';
 
 function StatusBadge({ state }) {
   const colors = {
@@ -169,15 +157,7 @@ export default function Containers() {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, _setTab] = useState(() => searchParams.get('tab') || 'containers');
-  const setTab = (t) => { _setTab(t); setSearchParams({ tab: t }, { replace: true }); };
-
-  // Sync tab when sidebar navigates with ?tab=
-  useEffect(() => {
-    const t = searchParams.get('tab');
-    if (t && ['containers', 'images'].includes(t)) _setTab(t);
-  }, [searchParams]);
+  const [tab, setTab] = useTabSync(['containers', 'images'], 'containers');
   const [logContainer, setLogContainer] = useState(null);
   const [showPullModal, setShowPullModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
@@ -224,15 +204,6 @@ export default function Containers() {
       setError(err.response?.data?.error || err.message);
       setActionLoading(null);
     }
-  }
-
-  function formatBytes(bytes) {
-    if (!bytes && bytes !== 0) return '—';
-    const num = typeof bytes === 'string' ? parseInt(bytes, 10) : bytes;
-    if (num === 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(num) / Math.log(1024));
-    return `${(num / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
   }
 
   if (loading) {

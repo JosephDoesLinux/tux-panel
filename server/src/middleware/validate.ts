@@ -15,10 +15,10 @@ const validate = (schema: z.ZodSchema, property: 'body' | 'query' | 'params' = '
       next();
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
-        logger.warn(`Validation failed for ${req.method} ${req.originalUrl}: ${(error as any).errors.map((e: any) => e.message).join(', ')}`);
+        logger.warn(`Validation failed for ${req.method} ${req.originalUrl}: ${error.issues.map((e) => e.message).join(', ')}`);
         return res.status(400).json({
           error: 'Invalid input',
-          details: (error as any).errors.map((e: any) => ({ path: e.path.join('.'), message: e.message }))
+          details: error.issues.map((e) => ({ path: e.path.join('.'), message: e.message }))
         });
       }
       next(error);

@@ -17,6 +17,22 @@ import { execFileSync, spawn } from 'child_process';
 import jwt from 'jsonwebtoken';
 import logger from '../utils/logger';
 
+/** Represents a TuxPanel user after successful authentication. */
+export interface TuxUser {
+  username: string;
+  uid: number;
+  groups: string[];
+}
+
+/** JWT payload stored in session tokens. */
+export interface JwtPayload {
+  sub: string;
+  uid: number;
+  groups: string[];
+  iat: number;
+  exp: number;
+}
+
 const REQUIRED_GROUP = process.env.TUXPANEL_GROUP || 'tuxpanel';
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '8h';
 
@@ -38,7 +54,7 @@ if (!process.env.JWT_SECRET) {
  * @param {string} password
  * @returns {Promise<{success: boolean, user?: object, error?: string}>}
  */
-async function authenticate(username: string, password: string): Promise<{success: boolean, user?: any, error?: string}> {
+async function authenticate(username: string, password: string): Promise<{success: boolean, user?: TuxUser, error?: string}> {
   // Basic input validation
   if (!username || !password) {
     return { success: false, error: 'Username and password are required' };
@@ -205,7 +221,7 @@ function getUserUid(username: string): number {
 /**
  * Sign a JWT for an authenticated user.
  */
-function signToken(user: { username: string, uid: number, groups: string[] }): string {
+function signToken(user: TuxUser): string {
   return jwt.sign(
     {
       sub: user.username,
@@ -221,9 +237,9 @@ function signToken(user: { username: string, uid: number, groups: string[] }): s
  * Verify and decode a JWT.
  * @returns {object|null} Decoded payload or null
  */
-function verifyToken(token: string): any {
+function verifyToken(token: string): JwtPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, JWT_SECRET) as JwtPayload;
   } catch {
     return null;
   }
@@ -234,5 +250,4 @@ export {
   signToken,
   verifyToken,
   REQUIRED_GROUP,
-  JWT_SECRET,
  };

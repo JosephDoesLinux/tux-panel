@@ -3,28 +3,16 @@
  */
 
 import { Server  } from 'socket.io';
+import http from 'http';
 import logger from '../utils/logger';
 import { attachTerminalHandlers  } from './terminal';
 import { authenticateSocket  } from '../middleware/auth';
+import { corsOriginValidator } from '../utils/cors';
 
-/**
- * @param {import('http').Server} httpServer
- */
-function initSocketIO(httpServer: any) {
-  const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
-    .split(',')
-    .map((o) => o.trim());
-
+function initSocketIO(httpServer: http.Server) {
   const io = new Server(httpServer, {
     cors: {
-      origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin)) {
-          return callback(null, true);
-        }
-        callback(new Error('CORS not allowed'));
-      },
+      origin: corsOriginValidator,
       methods: ['GET', 'POST'],
       credentials: true,
     },

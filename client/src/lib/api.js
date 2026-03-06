@@ -7,7 +7,7 @@ const api = axios.create({
   withCredentials: true,  // Send cookies with every request (httpOnly JWT)
 });
 
-// ── 401 interceptor — redirect to login on expired/invalid session ──
+// ── 401 interceptor — notify auth context on expired/invalid session ──
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -15,8 +15,8 @@ api.interceptors.response.use(
       error.response?.status === 401 &&
       !error.config.url?.includes('/api/auth/')
     ) {
-      // Session expired — reload to trigger the auth check
-      window.location.href = '/login';
+      // Fire a custom event so AuthContext can clear state & redirect via React Router
+      window.dispatchEvent(new Event('auth:expired'));
     }
     return Promise.reject(error);
   }

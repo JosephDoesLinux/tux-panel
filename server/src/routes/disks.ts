@@ -70,7 +70,7 @@ const subvolSchema = z.object({
 router.post('/subvolumes', validate(subvolSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { path: subvolPath } = req.body;
-    logger.info(`Creating btrfs subvolume: ${subvolPath}`);
+    logger.info(`Creating btrfs subvolume: ${subvolPath} [user: ${req.user?.sub || 'unknown'}]`);
     await run('btrfsSubvolCreateNew', [subvolPath]);
     res.status(201).json({ ok: true });
   } catch (err) { next(err); }
@@ -81,7 +81,7 @@ router.post('/subvolumes', validate(subvolSchema), async (req: Request, res: Res
 router.delete('/subvolumes', validate(subvolSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { path: subvolPath } = req.body;
-    logger.warn(`Deleting btrfs subvolume: ${subvolPath}`);
+    logger.warn(`Deleting btrfs subvolume: ${subvolPath} [user: ${req.user?.sub || 'unknown'}]`);
     await run('btrfsSubvolDel', [subvolPath]);
     res.json({ ok: true });
   } catch (err) { next(err); }
@@ -124,7 +124,7 @@ router.delete('/snapshots', async (req: Request, res: Response, next: NextFuncti
     if (!snapPath || !/^\/[\w/.-]+$/.test(snapPath)) {
       return res.status(400).json({ error: 'Valid snapshot path required' });
     }
-    logger.warn(`Deleting btrfs snapshot: ${snapPath}`);
+    logger.warn(`Deleting btrfs snapshot: ${snapPath} [user: ${req.user?.sub || 'unknown'}]`);
     await run('btrfsSubvolDel', [snapPath]);
     res.json({ ok: true });
   } catch (err) { next(err); }
@@ -142,7 +142,7 @@ router.post('/snapshots', async (req: Request, res: Response, next: NextFunction
       return res.status(400).json({ error: 'Invalid paths' });
     }
     const args = readonly ? ['-r', source, destination] : [source, destination];
-    logger.info(`Creating btrfs snapshot: ${source} → ${destination}`);
+    logger.info(`Creating btrfs snapshot: ${source} → ${destination} [user: ${req.user?.sub || 'unknown'}]`);
     await run('btrfsSubvolCreate', args);
     res.status(201).json({ ok: true });
   } catch (err) { next(err); }
@@ -186,7 +186,7 @@ router.post('/mounts', async (req: Request, res: Response, next: NextFunction) =
     if (options) args.push('-o', options);
     args.push(device, mountpoint);
     
-    logger.info(`Mounting ${device} to ${mountpoint}`);
+    logger.info(`Mounting ${device} to ${mountpoint} [user: ${req.user?.sub || 'unknown'}]`);
     await run('mount', args);
     res.status(201).json({ ok: true });
   } catch (err) { next(err); }
@@ -200,7 +200,7 @@ router.delete('/mounts', async (req: Request, res: Response, next: NextFunction)
     if (!target) {
       return res.status(400).json({ error: 'target (device or mountpoint) is required' });
     }
-    logger.warn(`Unmounting ${target}`);
+    logger.warn(`Unmounting ${target} [user: ${req.user?.sub || 'unknown'}]`);
     await run('umount', [target]);
     res.json({ ok: true });
   } catch (err) { next(err); }

@@ -29,20 +29,26 @@ import { io } from 'socket.io-client';
 
 const TerminalContext = createContext(null);
 const MAX_BUFFER = 500_000; // characters
-let counter = 0;
 
 export function TerminalProvider({ children }) {
   // sessions now carry an optional splitId
   const [sessions, setSessions] = useState([]);  // [{ id, name, alive, splitId }]
   const [activeTabId, setActiveTab] = useState(null);
   const dataRef = useRef(new Map()); // id → { socket, buffer[], bufferSize, alive, listeners }
+  const counterRef = useRef(0);
 
   /* ── Create ──────────────────────────────────────────────────── */
   const createSession = useCallback((name, { activate = true, hidden = false } = {}) => {
-    const id = ++counter;
+    const id = ++counterRef.current;
     const displayName = name || `Terminal ${id}`;
 
-    const socket = io('/terminal', { transports: ['websocket'] });
+    const socket = io('/terminal', {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 8000,
+    });
 
     const entry = {
       socket,
@@ -50,10 +56,37 @@ export function TerminalProvider({ children }) {
       bufferSize: 0,
       alive: true,
       listeners: new Set(),
+      lastCols: 80,
+      lastRows: 24,
     };
 
     socket.on('connect', () => {
-      socket.emit('terminal:start', { cols: 80, rows: 24 });
+      socket.emit('terminal:start', { cols: entry.lastCols, rows: entry.lastRows });
+    });
+
+    socket.on('disconnect', (reason) => {
+      if (entry.alive && reason !== 'io client disconnect') {
+        const msg = `\r\n\x1b[33m[Connection lost — reconnecting…]\x1b[0m\r\n`;
+        entry.buffer.push(msg);
+        entry.bufferSize += msg.length;
+        for (const fn of entry.listeners) fn(msg);
+      }
+    });
+
+    socket.on('reconnect', () => {
+      const msg = `\r\n\x1b[32m[Reconnected]\x1b[0m\r\n`;
+      entry.buffer.push(msg);
+      entry.bufferSize += msg.length;
+      for (const fn of entry.listeners) fn(msg);
+    });
+
+    socket.on('reconnect_failed', () => {
+      entry.alive = false;
+      const msg = `\r\n\x1b[31m[Reconnection failed — session closed]\x1b[0m`;
+      entry.buffer.push(msg);
+      entry.bufferSize += msg.length;
+      for (const fn of entry.listeners) fn(msg);
+      setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, alive: false } : s)));
     });
 
     socket.on('terminal:output', (data) => {
@@ -150,7 +183,12 @@ export function TerminalProvider({ children }) {
   }, []);
 
   const sendResize = useCallback((id, cols, rows) => {
-    dataRef.current.get(id)?.socket.emit('terminal:resize', { cols, rows });
+    const entry = dataRef.current.get(id);
+    if (entry) {
+      entry.lastCols = cols;
+      entry.lastRows = rows;
+      entry.socket.emit('terminal:resize', { cols, rows });
+    }
   }, []);
 
   const subscribe = useCallback((id, fn) => {

@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
   Cog,
   Play,
@@ -17,21 +16,10 @@ import {
   Shield,
 } from 'lucide-react';
 import api from '../lib/api';
+import useTabSync from '../hooks/useTabSync';
 import ConfigEditorTab from '../components/ConfigEditorTab';
-
-/* ── Helpers ─────────────────────────────────────────────────────── */
-
-function SectionHeader({ icon: Icon, title, color = 'text-gb-aqua', children }) {
-  return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <Icon size={20} className={color} />
-        <h2 className="text-lg font-black uppercase tracking-tight text-gb-fg1">{title}</h2>
-      </div>
-      {children}
-    </div>
-  );
-}
+import SectionHeader from '../components/shared/SectionHeader';
+import ConfirmModal from '../components/shared/ConfirmModal';
 
 function StatusBadge({ active, sub }) {
   const colors = {
@@ -104,15 +92,7 @@ function JournalViewer({ unit, onClose }) {
 const VALID_TABS = ['services', 'processes', 'ssh'];
 
 export default function Services() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, _setTab] = useState(() => searchParams.get('tab') || 'services');
-  const setTab = (t) => { _setTab(t); setSearchParams({ tab: t }, { replace: true }); };
-
-  // Sync tab when sidebar navigates with ?tab=
-  useEffect(() => {
-    const t = searchParams.get('tab');
-    if (t && VALID_TABS.includes(t)) _setTab(t);
-  }, [searchParams]);
+  const [tab, setTab] = useTabSync(VALID_TABS, 'services');
   const [units, setUnits] = useState([]);
   const [processes, setProcesses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -122,6 +102,7 @@ export default function Services() {
   const [sortField, setSortField] = useState('cpu');
   const [sortDir, setSortDir] = useState('desc');
   const [actionLoading, setActionLoading] = useState(null);
+  const [killConfirm, setKillConfirm] = useState(null);
 
   const fetchServices = useCallback(async () => {
     try {
@@ -164,7 +145,7 @@ export default function Services() {
   }
 
   async function handleKill(pid) {
-    if (!confirm(`Kill process ${pid}?`)) return;
+    setKillConfirm(null);
     try {
       await api.post('/api/services/kill', { pid, signal: 'TERM' });
       setTimeout(fetchProcesses, 500);
@@ -400,7 +381,7 @@ export default function Services() {
                   <td className="px-4 py-2 text-gb-fg2 text-xs font-mono truncate max-w-md">{p.command}</td>
                   <td className="px-4 py-2 text-center">
                     <button
-                      onClick={() => handleKill(p.pid)}
+                      onClick={() => setKillConfirm(p.pid)}
                       className="p-1 text-gb-fg4 hover:text-gb-red transition-colors"
                       title="Kill process"
                     >
@@ -418,6 +399,17 @@ export default function Services() {
       {journalUnit && (
         <JournalViewer unit={journalUnit} onClose={() => setJournalUnit(null)} />
       )}
+
+      {/* ── Kill Confirm Modal ─────────────────────────────────── */}
+      <ConfirmModal
+        open={!!killConfirm}
+        title={`Kill process ${killConfirm}?`}
+        message="This will send SIGTERM to the process."
+        confirmText="Kill"
+        variant="danger"
+        onConfirm={() => handleKill(killConfirm)}
+        onCancel={() => setKillConfirm(null)}
+      />
     </div>
   );
 }

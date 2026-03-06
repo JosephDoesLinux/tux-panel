@@ -15,9 +15,10 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { useTerminal } from '../contexts/TerminalContext';
+import { useTheme } from '../contexts/ThemeContext';
 
-const GRUVBOX_THEME = {
-  background: '#1d2021',
+const GRUVBOX_DARK = {
+  background: 'rgba(29, 32, 33, 0.70)',
   foreground: '#ebdbb2',
   cursor: '#fabd2f',
   cursorAccent: '#1d2021',
@@ -41,9 +42,43 @@ const GRUVBOX_THEME = {
   brightWhite: '#ebdbb2',
 };
 
+const GRUVBOX_LIGHT = {
+  background: 'rgba(249, 245, 215, 0.70)',
+  foreground: '#3c3836',
+  cursor: '#d79921',
+  cursorAccent: '#fbf1c7',
+  selectionBackground: '#d5c4a1',
+  selectionForeground: '#3c3836',
+  black: '#fbf1c7',
+  red: '#cc241d',
+  green: '#98971a',
+  yellow: '#d79921',
+  blue: '#458588',
+  magenta: '#b16286',
+  cyan: '#689d6a',
+  white: '#665c54',
+  brightBlack: '#928374',
+  brightRed: '#9d0006',
+  brightGreen: '#79740e',
+  brightYellow: '#b57614',
+  brightBlue: '#076678',
+  brightMagenta: '#8f3f71',
+  brightCyan: '#427b58',
+  brightWhite: '#3c3836',
+};
+
 export default memo(function TerminalPane({ sessionId }) {
   const containerRef = useRef(null);
+  const xtermRef = useRef(null);
   const { sendInput, sendResize, subscribe, getBuffer } = useTerminal();
+  const { isDark } = useTheme();
+
+  // Swap theme live when the user toggles dark/light
+  useEffect(() => {
+    if (xtermRef.current) {
+      xtermRef.current.options.theme = isDark ? GRUVBOX_DARK : GRUVBOX_LIGHT;
+    }
+  }, [isDark]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -53,8 +88,10 @@ export default memo(function TerminalPane({ sessionId }) {
       cursorBlink: true,
       fontSize: 14,
       fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-      theme: GRUVBOX_THEME,
+      theme: isDark ? GRUVBOX_DARK : GRUVBOX_LIGHT,
+      allowTransparency: true,
     });
+    xtermRef.current = xterm;
 
     const fitAddon = new FitAddon();
     xterm.loadAddon(fitAddon);
@@ -108,8 +145,9 @@ export default memo(function TerminalPane({ sessionId }) {
       unsub();
       onData.dispose();
       xterm.dispose();
+      xtermRef.current = null;
     };
   }, [sessionId, sendInput, sendResize, subscribe, getBuffer]);
 
-  return <div ref={containerRef} className="h-full w-full overflow-hidden" />;
+  return <div ref={containerRef} className="h-full w-full overflow-hidden glass-panel" />;
 });

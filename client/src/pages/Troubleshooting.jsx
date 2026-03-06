@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
   Wrench,
   Cpu,
@@ -24,6 +23,7 @@ import {
   CircuitBoard,
 } from 'lucide-react';
 import api from '../lib/api';
+import useTabSync from '../hooks/useTabSync';
 
 /* ── Shared helpers ──────────────────────────────────────────────── */
 
@@ -83,20 +83,26 @@ function SystemInfoTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetch_ = useCallback(async () => {
+  const fetch_ = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/api/diagnostics/sysinfo');
+      const res = await api.get('/api/diagnostics/sysinfo', signal ? { signal } : {});
+      if (signal?.aborted) return;
       setData(res.data);
     } catch (err) {
+      if (signal?.aborted) return;
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetch_(); }, [fetch_]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch_(controller.signal);
+    return () => controller.abort();
+  }, [fetch_]);
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorBanner message={error} />;
@@ -232,7 +238,7 @@ function LogsTab() {
     { value: 'yesterday', label: 'Since yesterday' },
   ];
 
-  const fetchLogs = useCallback(async () => {
+  const fetchLogs = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
@@ -243,17 +249,23 @@ function LogsTab() {
       if (since) params.set('since', since);
       if (grepStr) params.set('grep', grepStr);
 
-      const res = await api.get(`/api/diagnostics/logs?${params.toString()}`);
+      const res = await api.get(`/api/diagnostics/logs?${params.toString()}`, signal ? { signal } : {});
+      if (signal?.aborted) return;
       setLogs(res.data.logs || '');
       setTimeout(() => logEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (err) {
+      if (signal?.aborted) return;
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [lines, priority, unit, since, grepStr]);
 
-  useEffect(() => { fetchLogs(); }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchLogs(controller.signal);
+    return () => controller.abort();
+  }, []);
 
   // Colorize log lines
   const colorizedLogs = (logs || '').split('\n').map((line, i) => {
@@ -316,7 +328,7 @@ function LogsTab() {
               className="w-full bg-gb-bg1 border-2 border-gb-bg3 text-gb-fg1 text-xs px-2 py-1.5 font-mono placeholder:text-gb-bg4" />
           </div>
           <div className="flex items-end">
-            <button onClick={fetchLogs} disabled={loading}
+            <button onClick={() => fetchLogs()} disabled={loading}
               className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-bold border-2 border-gb-aqua-dim bg-gb-aqua text-gb-bg0-hard hover:opacity-90 transition-colors uppercase disabled:opacity-50">
               {loading ? <Activity size={12} className="animate-spin" /> : <Search size={12} />}
               Query
@@ -372,14 +384,16 @@ function DiagnosticsTab() {
   const [smartResult, setSmartResult] = useState(null);
   const [smartLoading, setSmartLoading] = useState(false);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (signal) => {
     setLoading(true);
+    const opts = signal ? { signal } : {};
     const [fu, dm, se, pt] = await Promise.allSettled([
-      api.get('/api/diagnostics/failed-units'),
-      api.get('/api/diagnostics/dmesg'),
-      api.get('/api/diagnostics/selinux'),
-      api.get('/api/diagnostics/ports'),
+      api.get('/api/diagnostics/failed-units', opts),
+      api.get('/api/diagnostics/dmesg', opts),
+      api.get('/api/diagnostics/selinux', opts),
+      api.get('/api/diagnostics/ports', opts),
     ]);
+    if (signal?.aborted) return;
     setFailedUnits(fu.status === 'fulfilled' ? fu.value.data.output : 'Error loading');
     setDmesg(dm.status === 'fulfilled' ? dm.value.data.dmesg : 'Error loading');
     setSelinux(se.status === 'fulfilled' ? se.value.data : null);
@@ -387,7 +401,11 @@ function DiagnosticsTab() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchAll(controller.signal);
+    return () => controller.abort();
+  }, [fetchAll]);
 
   async function runNetTool() {
     if (!netHost.trim()) return;
@@ -433,7 +451,7 @@ function DiagnosticsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-sm text-gb-fg4">System health checks and network diagnostics</span>
-        <button onClick={fetchAll} className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold border-2 border-gb-bg3 bg-gb-bg1 text-gb-fg4 hover:text-gb-fg1 hover:bg-gb-bg2 transition-colors uppercase">
+        <button onClick={() => fetchAll()} className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold border-2 border-gb-bg3 bg-gb-bg1 text-gb-fg4 hover:text-gb-fg1 hover:bg-gb-bg2 transition-colors uppercase">
           <RefreshCw size={12} /> Refresh
         </button>
       </div>
@@ -659,15 +677,8 @@ const TABS = [
 ];
 
 export default function Troubleshooting() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, _setTab] = useState(() => searchParams.get('tab') || 'sysinfo');
-  const setTab = (t) => { _setTab(t); setSearchParams({ tab: t }, { replace: true }); };
-
-  // Sync tab when sidebar navigates with ?tab=
-  useEffect(() => {
-    const t = searchParams.get('tab');
-    if (t && TABS.some((x) => x.key === t)) _setTab(t);
-  }, [searchParams]);
+  const VALID_TAB_KEYS = TABS.map((x) => x.key);
+  const [tab, setTab] = useTabSync(VALID_TAB_KEYS, 'sysinfo');
 
   return (
     <div>

@@ -22,10 +22,17 @@ export default function Terminal() {
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
   const editRef = useRef(null);
+  const createdRef = useRef(false);
 
   // Auto-create a session on first visit (or when last tab is closed)
   useEffect(() => {
-    if (sessions.length === 0) createSession();
+    if (sessions.length === 0 && !createdRef.current) {
+      createdRef.current = true;
+      createSession();
+    }
+    if (sessions.length > 0) {
+      createdRef.current = false;
+    }
   }, [sessions.length, createSession]);
 
   // Focus rename input
@@ -178,14 +185,14 @@ export default function Terminal() {
               currentSplitId ? 'flex-1' : 'w-full'
             }`}
           >
-            <TerminalPane key={activeTabId} sessionId={activeTabId} />
+            <TerminalPane key={`${activeTabId}`} sessionId={activeTabId} />
           </div>
         )}
 
         {/* Split pane (per-tab) */}
         {currentSplitId && (
           <div className="flex-1 border-2 border-gb-bg2 overflow-hidden">
-            <TerminalPane key={currentSplitId} sessionId={currentSplitId} />
+            <TerminalPane key={`${currentSplitId}`} sessionId={currentSplitId} />
           </div>
         )}
       </div>

@@ -10,12 +10,12 @@ import rateLimit from 'express-rate-limit';
 import { requireAuth  } from './middleware/auth';
 import logger from './utils/logger';
 import asyncLocalStorage from './utils/asyncContext';
+import { corsOriginValidator } from './utils/cors';
 
 import healthRoutes from './routes/health';
 import authRoutes from './routes/auth';
 import systemRoutes from './routes/system';
 import rdpRoutes from './routes/rdp';
-import storageRoutes from './routes/storage';
 import disksRoutes from './routes/disks';
 import servicesRoutes from './routes/services';
 import containersRoutes from './routes/containers';
@@ -35,23 +35,9 @@ app.use((req, res, next) => {
 // ── Security ──────────────────────────────────────────────────────────
 app.use(helmet());
 
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
-  .split(',')
-  .map((o) => o.trim());
-
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, same-origin)
-      if (!origin) return callback(null, true);
-      // Allow configured origins
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      // Allow any LAN origin during development (192.168.x.x, 10.x.x.x, etc.)
-      if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin)) {
-        return callback(null, true);
-      }
-      callback(new Error('CORS not allowed'));
-    },
+    origin: corsOriginValidator,
     credentials: true,
   })
 );
@@ -82,7 +68,6 @@ app.use('/api/health', healthRoutes);      // Public — health check
 app.use('/api/auth',   authRoutes);        // Public — login/logout/session
 app.use('/api/system', requireAuth, systemRoutes);  // Protected
 app.use('/api/rdp',    requireAuth, rdpRoutes);     // Protected
-app.use('/api/storage',    requireAuth, storageRoutes);    // Protected
 app.use('/api/disks',      requireAuth, disksRoutes);      // Protected
 app.use('/api/services',   requireAuth, servicesRoutes);   // Protected
 app.use('/api/containers', requireAuth, containersRoutes); // Protected

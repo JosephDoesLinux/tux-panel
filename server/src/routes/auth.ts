@@ -61,7 +61,7 @@ router.post('/login', loginLimiter, validate(loginSchema), async (req: Request, 
   }
 
   // Sign JWT and set as httpOnly cookie
-  const token = signToken(result.user as any);
+  const token = signToken(result.user!);
 
   res.cookie(COOKIE_NAME, token, cookieOptions(req));
 
@@ -85,7 +85,7 @@ router.post('/logout', (req: Request, res: Response) => {
  * GET /api/auth/session
  * Returns current user info if authenticated, 401 otherwise.
  */
-router.get('/session', requireAuth as any, (req: Request, res: Response) => {
+router.get('/session', requireAuth, (req: Request, res: Response) => {
   res.json({
     user: {
       username: req.user?.sub,

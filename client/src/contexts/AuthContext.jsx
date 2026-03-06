@@ -23,6 +23,13 @@ export function AuthProvider({ children }) {
     checkSession();
   }, []);
 
+  // ── Listen for 401 events from the api interceptor ──────────────
+  useEffect(() => {
+    const onExpired = () => setUser(null);
+    window.addEventListener('auth:expired', onExpired);
+    return () => window.removeEventListener('auth:expired', onExpired);
+  }, []);
+
   async function checkSession() {
     try {
       const res = await api.get('/api/auth/session');

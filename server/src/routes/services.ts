@@ -7,12 +7,20 @@ import fs from 'fs';
 import { z } from 'zod';
 import validate from '../middleware/validate';
 import { run } from '../utils/commandRunner';
+import { readPrivilegedFile, writePrivilegedFile } from '../utils/fileIO';
 import logger from '../utils/logger';
 
 const router = Router();
 
 // ── Config file paths & service mappings ────────────────────────────
-const CONFIG_FILES = {
+interface ConfigEntry {
+  path: string;
+  service: string;
+  label: string;
+  altPaths?: string[];
+}
+
+const CONFIG_FILES: Record<string, ConfigEntry> = {
   ssh:  { path: '/etc/ssh/sshd_config',   service: 'sshd.service',      label: 'SSH' },
   smb:  { path: '/etc/samba/smb.conf',     service: 'smb.service',       label: 'Samba' },
   nfs:  { path: '/etc/exports',            service: 'nfs-server.service', label: 'NFS' },
@@ -82,7 +90,7 @@ router.post('/action', validate(actionSchema), async (req: Request, res: Respons
   try {
     const { unit, action } = req.body;
 
-    logger.warn(`Service action: ${action} ${unit}`);
+    logger.warn(`Service action: ${action} ${unit} [user: ${req.user?.sub || 'unknown'}]`);
     const result = await run('systemctlAction', [action, unit]);
     res.json({ ok: true, output: result.stdout });
   } catch (err) {
@@ -114,16 +122,17 @@ router.get('/processes', async (_req: Request, res: Response, next: NextFunction
   try {
     const result = await run('ps');
     const lines = result.stdout.split('\n');
-    const header = lines[0];
     const processes = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
 
       // ps aux format: USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
-      const parts = line.split(/\s+/);
+      const parts = trimmed.split(/\s+/);
       if (parts.length < 11) continue;
+      // Skip header line if present (in case --no-headers isn't honoured)
+      if (parts[0] === 'USER' && parts[1] === 'PID') continue;
 
       processes.push({
         user: parts[0],
@@ -160,7 +169,7 @@ router.post('/kill', validate(killSchema), async (req: Request, res: Response, n
   try {
     const { pid, signal } = req.body;
 
-    logger.warn(`Killing process PID ${pid} with signal ${signal}`);
+    logger.warn(`Killing process PID ${pid} with signal ${signal} [user: ${req.user?.sub || 'unknown'}]`);
     const result = await run('kill', [`-${signal}`, String(pid)]);
     res.json({ ok: true, output: result.stdout });
   } catch (err) {
@@ -173,7 +182,7 @@ router.post('/kill', validate(killSchema), async (req: Request, res: Response, n
 router.get('/config/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const name = (req.params.name as string).toLowerCase();
-    const cfg = (CONFIG_FILES as any)[name];
+    const cfg = CONFIG_FILES[name];
     if (!cfg) {
       return res.status(400).json({ error: `Unknown config: ${name}. Valid: ${Object.keys(CONFIG_FILES).join(', ')}` });
     }
@@ -190,29 +199,20 @@ router.get('/config/:name', async (req: Request, res: Response, next: NextFuncti
     let content = '';
     if (installed) {
       try {
-        content = fs.readFileSync(configPath, 'utf-8');
-      } catch {
-        // Permission denied — fall back to catFile via commandRunner
-        try {
-          const r = await run('editConf', ['read', configPath]);
-          content = r.stdout;
-        } catch (e: any) {
-          content = `# Unable to read ${configPath}: ${e.message}`;
-        }
+        content = await readPrivilegedFile(configPath);
+      } catch (e: any) {
+        content = `# Unable to read ${configPath}: ${e.message}`;
       }
     }
 
-    // Service status
+    // Service status — single call, check for both active and enabled
     let serviceActive = false;
     let serviceEnabled = false;
     try {
       const st = await run('systemctlStatus', [cfg.service]);
       serviceActive = st.stdout.includes('active (running)');
-    } catch { /* not running */ }
-    try {
-      const en = await run('systemctlStatus', [cfg.service]);
-      serviceEnabled = en.stdout.includes('enabled');
-    } catch { /* not enabled */ }
+      serviceEnabled = st.stdout.includes('enabled');
+    } catch { /* not running / not enabled */ }
 
     res.json({
       name, label: cfg.label, path: configPath, installed,
@@ -231,7 +231,7 @@ const configUpdateSchema = z.object({
 router.put('/config/:name', validate(configUpdateSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const name = (req.params.name as string).toLowerCase();
-    const cfg = (CONFIG_FILES as any)[name];
+    const cfg = CONFIG_FILES[name];
     if (!cfg) {
       return res.status(400).json({ error: `Unknown config: ${name}` });
     }
@@ -247,25 +247,17 @@ router.put('/config/:name', validate(configUpdateSchema), async (req: Request, r
     }
 
     // Write file
-    logger.warn(`Writing config: ${configPath} (${content.length} bytes)`);
-    try {
-      fs.writeFileSync(configPath, content, 'utf-8');
-    } catch (err: any) {
-      if (err.code === 'EACCES') {
-        // Fallback to sudo tee
-        await run('editConf', ['write', configPath], { stdin: content });
-      } else {
-        throw err;
-      }
-    }
+    const user = req.user?.sub || 'unknown';
+    logger.warn(`[${user}] Writing config: ${configPath} (${content.length} bytes)`);
+    await writePrivilegedFile(configPath, content);
 
     // Optionally restart the service
     if (restart) {
       try {
         await run('systemctlAction', ['restart', cfg.service]);
-        logger.info(`Restarted ${cfg.service} after config update`);
+        logger.info(`Restarted ${cfg.service} after config update [user: ${req.user?.sub || 'unknown'}]`);
       } catch (e: any) {
-        logger.warn(`Failed to restart ${cfg.service}: ${e.message}`);
+        logger.warn(`Failed to restart ${cfg.service} [user: ${req.user?.sub || 'unknown'}]: ${e.message}`);
         return res.json({ ok: true, warning: `Config saved but service restart failed: ${e.message}` });
       }
     }
@@ -281,8 +273,8 @@ router.get('/config-list', async (_req: Request, res: Response, next: NextFuncti
     const configs = [];
     for (const [name, cfg] of Object.entries(CONFIG_FILES)) {
       let installed = fs.existsSync(cfg.path);
-      if (!installed && (cfg as any).altPaths) {
-        installed = (cfg as any).altPaths.some((p: string) => fs.existsSync(p));
+      if (!installed && cfg.altPaths) {
+        installed = cfg.altPaths.some((p) => fs.existsSync(p));
       }
       let serviceActive = false;
       try {

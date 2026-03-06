@@ -26,6 +26,7 @@ import {
   Legend,
 } from 'recharts';
 import api from '../lib/api';
+import { formatBytes, formatRate } from '../lib/utils';
 
 /* ── Gruvbox palette for charts ──────────────────────────────────── */
 const GB = {
@@ -158,21 +159,6 @@ function ServicePill({ name, active }) {
 
 /* ── Format helpers ──────────────────────────────────────────────── */
 
-function formatRate(bytesPerSec) {
-  if (!bytesPerSec || bytesPerSec < 0) return '0 B/s';
-  if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
-  if (bytesPerSec < 1048576) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
-  return `${(bytesPerSec / 1048576).toFixed(1)} MB/s`;
-}
-
-function formatBytes(bytes) {
-  if (!bytes) return '0 B';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} KB`;
-  if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(1)} MB`;
-  return `${(bytes / 1073741824).toFixed(1)} GB`;
-}
-
 function timeLabel(secondsAgo) {
   return `-${secondsAgo}s`;
 }
@@ -197,6 +183,7 @@ export default function Dashboard() {
   const prevNetTime = useRef(null);
   const tickRef = useRef(0);
   const intervalRef = useRef(null);
+  const svcIntervalRef = useRef(null);
 
   /* ── Data fetching ───────────────────────────────────────────── */
 
@@ -293,11 +280,33 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
     fetchServices();
-    intervalRef.current = setInterval(fetchData, 2000);
-    const svcInterval = setInterval(fetchServices, 10000);
-    return () => {
+
+    const startPolling = () => {
+      intervalRef.current = setInterval(fetchData, 2000);
+      svcIntervalRef.current = setInterval(fetchServices, 10000);
+    };
+    const stopPolling = () => {
       clearInterval(intervalRef.current);
-      clearInterval(svcInterval);
+      clearInterval(svcIntervalRef.current);
+    };
+
+    startPolling();
+
+    // Pause polling when the tab is hidden to save resources
+    const onVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchData();
+        fetchServices();
+        startPolling();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [fetchData, fetchServices]);
 

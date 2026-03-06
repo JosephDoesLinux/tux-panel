@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
   Users,
   UserPlus,
@@ -13,20 +12,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import api from '../lib/api';
-
-/* ── Helpers ─────────────────────────────────────────────────────── */
-
-function SectionHeader({ icon: Icon, title, color = 'text-gb-aqua', children }) {
-  return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <Icon size={20} className={color} />
-        <h2 className="text-lg font-black uppercase tracking-tight text-gb-fg1">{title}</h2>
-      </div>
-      {children}
-    </div>
-  );
-}
+import useTabSync from '../hooks/useTabSync';
+import SectionHeader from '../components/shared/SectionHeader';
 
 /* ── Create User Modal ───────────────────────────────────────────── */
 
@@ -139,15 +126,7 @@ function CreateUserModal({ onClose, onCreated }) {
 /* ── Main Accounts Page ──────────────────────────────────────────── */
 
 export default function Accounts() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, _setTab] = useState(() => searchParams.get('tab') || 'users');
-  const setTab = (t) => { _setTab(t); setSearchParams({ tab: t }, { replace: true }); };
-
-  // Sync tab when sidebar navigates with ?tab=
-  useEffect(() => {
-    const t = searchParams.get('tab');
-    if (t && ['users', 'groups', 'firewall'].includes(t)) _setTab(t);
-  }, [searchParams]);
+  const [tab, setTab] = useTabSync(['users', 'groups', 'firewall'], 'users');
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [firewall, setFirewall] = useState(null);

@@ -135,9 +135,9 @@ router.get('/services', async (_req: Request, res: Response, next: NextFunction)
 });
 
 // ── POST /api/system/shutdown ─────────────────────────────────────────
-router.post('/shutdown', async (_req: Request, res: Response, next: NextFunction) => {
+router.post('/shutdown', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    logger.warn('System shutdown requested');
+    logger.warn(`System shutdown requested [user: ${req.user?.sub || 'unknown'}]`);
     res.json({ ok: true, message: 'Shutting down…' });
     // Small delay so the response reaches the client
     setTimeout(() => run('poweroff').catch((e) => logger.error(`poweroff failed: ${e.message}`)), 500);
@@ -147,9 +147,9 @@ router.post('/shutdown', async (_req: Request, res: Response, next: NextFunction
 });
 
 // ── POST /api/system/reboot ──────────────────────────────────────────
-router.post('/reboot', async (_req: Request, res: Response, next: NextFunction) => {
+router.post('/reboot', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    logger.warn('System reboot requested');
+    logger.warn(`System reboot requested [user: ${req.user?.sub || 'unknown'}]`);
     res.json({ ok: true, message: 'Rebooting…' });
     setTimeout(() => run('reboot').catch((e) => logger.error(`reboot failed: ${e.message}`)), 500);
   } catch (err) {

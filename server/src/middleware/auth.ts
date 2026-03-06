@@ -30,7 +30,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 
   // Attach user info to the request
-  req.user = payload as any;
+  req.user = payload;
   next();
 }
 

@@ -62,7 +62,7 @@ router.post('/connect', async (req: Request, res: Response, next: NextFunction) 
     const host = connection.provider?.host || '127.0.0.1';
     const port = connection.provider?.port || 5900;
 
-    logger.info(`VNC connection verified → proxying to ${host}:${port}`);
+    logger.info(`VNC connection verified → proxying to ${host}:${port} [user: ${req.user?.sub || 'unknown'}]`);
 
     res.json({
       wsUrl: '/vnc',

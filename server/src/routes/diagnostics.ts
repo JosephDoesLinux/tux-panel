@@ -199,7 +199,7 @@ router.post('/ping', async (req: Request, res: Response, next: NextFunction) => 
     if (!host || !/^[a-zA-Z0-9._:-]+$/.test(host)) {
       return res.status(400).json({ error: 'Invalid host' });
     }
-    logger.info(`Diagnostic ping: ${host}`);
+    logger.info(`Diagnostic ping: ${host} [user: ${req.user?.sub || 'unknown'}]`);
     const result = await run('ping', [host], { timeout: 20_000 });
     res.json({ output: result.stdout });
   } catch (err: any) {
@@ -215,7 +215,7 @@ router.post('/traceroute', async (req: Request, res: Response, next: NextFunctio
     if (!host || !/^[a-zA-Z0-9._:-]+$/.test(host)) {
       return res.status(400).json({ error: 'Invalid host' });
     }
-    logger.info(`Diagnostic traceroute: ${host}`);
+    logger.info(`Diagnostic traceroute: ${host} [user: ${req.user?.sub || 'unknown'}]`);
     const result = await run('traceroute', [host], { timeout: 45_000 });
     res.json({ output: result.stdout });
   } catch (err: any) {

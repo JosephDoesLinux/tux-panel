@@ -11,6 +11,7 @@ import http from 'http';
 import app from './app';
 import { initSocketIO  } from './sockets';
 import { initVncProxy, getWebSocketServer  } from './services/vncService';
+import { authenticateSocket } from './middleware/auth';
 import logger from './utils/logger';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -34,6 +35,16 @@ if (vncWss) {
   server.on('upgrade', (req, socket, head) => {
     const pathname = req.url?.split('?')[0];
     if (pathname === '/vnc') {
+      // Authenticate the WebSocket upgrade request via cookie
+      const cookieHeader = req.headers.cookie || '';
+      const user = authenticateSocket(cookieHeader);
+      if (!user) {
+        logger.warn(`VNC WebSocket auth failed from ${req.socket.remoteAddress}`);
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      logger.info(`VNC WebSocket authenticated for user '${user.sub}'`);
       vncWss.handleUpgrade(req, socket, head, (ws: any) => {
         vncWss.emit('connection', ws, req);
       });

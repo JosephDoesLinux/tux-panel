@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { TerminalProvider } from '../contexts/TerminalContext';
 import AIChatbot from './AIChatbot';
+import api from '../lib/api';
 
 const NAV_ITEMS = [
   { to: '/', icon: Monitor, label: 'Dashboard' },
@@ -184,7 +185,7 @@ export default function Layout() {
 
   async function executePower(action) {
     try {
-      await fetch(`/api/system/${action}`, { method: 'POST' });
+      await api.post(`/api/system/${action}`);
     } catch {
       /* server will drop the connection during shutdown/reboot */
     }
@@ -194,9 +195,9 @@ export default function Layout() {
 
   return (
     <TerminalProvider>
-      <div className="flex flex-col h-screen bg-gb-bg0-hard">
+      <div className="flex flex-col h-screen wallpaper-bg">
       {/* ── Top Navbar ───────────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-5 py-3 bg-gb-bg0 border-b-2 border-gb-bg2">
+      <header className="flex items-center justify-between px-5 py-3 bg-gb-bg0 glass-panel border-b-2 border-gb-bg2">
         {/* Brand */}
         <div className="flex items-center gap-2">
           <span className="text-2xl">🐧</span>
@@ -300,7 +301,7 @@ export default function Layout() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── Sidebar ──────────────────────────────────────────── */}
-        <aside className="w-52 flex flex-col bg-gb-bg0 border-r-2 border-gb-bg2">
+        <aside className="w-52 flex flex-col bg-gb-bg0 glass-panel border-r-2 border-gb-bg2">
           {/* Nav links */}
           <SidebarNav />
 
@@ -311,7 +312,7 @@ export default function Layout() {
         </aside>
 
         {/* ── Main Content ─────────────────────────────────────── */}
-        <main className="flex-1 overflow-auto bg-gb-bg0-hard p-6 relative">
+        <main className="flex-1 overflow-auto p-6 relative">
           <Outlet />
           <AIChatbot />
         </main>
