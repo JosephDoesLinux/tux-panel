@@ -131,6 +131,10 @@ const COMMAND_REGISTRY = {
   smbStatus:      { bin: '/usr/bin/smbstatus',       defaultArgs: ['--json'],               sudo: false },
   testparm:       { bin: '/usr/bin/testparm',        defaultArgs: ['-s', '--suppress-prompt'], sudo: false },
 
+  // ─── Config Validation ────────────────────────────────────────
+  sshdTest:       { bin: '/usr/sbin/sshd',           defaultArgs: ['-t'],                   sudo: true },
+  vsftpdTest:     { bin: '/usr/sbin/vsftpd',         defaultArgs: ['-olisten=NO'],           sudo: false },
+
   // ─── SMART Monitoring ─────────────────────────────────────────
   smartctl:       { bin: '/usr/bin/smartctl',        defaultArgs: [],                      sudo: true },
 
@@ -155,6 +159,7 @@ const COMMAND_REGISTRY = {
   dockerLogs:     { bin: '/usr/bin/docker',          defaultArgs: ['logs'],                         sudo: false },
   dockerStats:    { bin: '/usr/bin/docker',          defaultArgs: ['stats', '--no-stream', '--format', 'json'], sudo: false },
   dockerPull:     { bin: '/usr/bin/docker',          defaultArgs: ['pull'],                         sudo: false },
+  dockerInspect:  { bin: '/usr/bin/docker',          defaultArgs: ['inspect'],                      sudo: false },
 
   // ─── Firewall ─────────────────────────────────────────────────
   firewalldState:      { bin: '/usr/bin/firewall-cmd', defaultArgs: ['--state'],              sudo: false },

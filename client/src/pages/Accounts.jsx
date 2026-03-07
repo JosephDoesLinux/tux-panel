@@ -200,7 +200,7 @@ export default function Accounts() {
       </h1>
 
       {/* ── Tab bar ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
         {[
           { key: 'users', icon: Users, label: 'Users' },
           { key: 'groups', icon: Key, label: 'Groups' },

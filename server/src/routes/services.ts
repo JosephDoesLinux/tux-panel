@@ -18,11 +18,12 @@ interface ConfigEntry {
   service: string;
   label: string;
   altPaths?: string[];
+  validateCmd?: string;   // command registry key for syntax validation
 }
 
 const CONFIG_FILES: Record<string, ConfigEntry> = {
-  ssh:  { path: '/etc/ssh/sshd_config',   service: 'sshd.service',      label: 'SSH' },
-  smb:  { path: '/etc/samba/smb.conf',     service: 'smb.service',       label: 'Samba' },
+  ssh:  { path: '/etc/ssh/sshd_config',   service: 'sshd.service',      label: 'SSH',   validateCmd: 'sshdTest' },
+  smb:  { path: '/etc/samba/smb.conf',     service: 'smb.service',       label: 'Samba', validateCmd: 'testparm' },
   nfs:  { path: '/etc/exports',            service: 'nfs-server.service', label: 'NFS' },
   ftp:  { path: '/etc/vsftpd/vsftpd.conf', service: 'vsftpd.service',   label: 'FTP',
           altPaths: ['/etc/vsftpd.conf'] },
@@ -250,6 +251,37 @@ router.put('/config/:name', validate(configUpdateSchema), async (req: Request, r
     const user = req.user?.sub || 'unknown';
     logger.warn(`[${user}] Writing config: ${configPath} (${content.length} bytes)`);
     await writePrivilegedFile(configPath, content);
+
+    // Validate configuration syntax if a validation command exists
+    let validated = true;
+    let validationOutput = '';
+    if (cfg.validateCmd) {
+      try {
+        const result = await run(cfg.validateCmd as any);
+        validationOutput = result.stdout || result.stderr || '';
+        logger.info(`Config validation passed for ${name}: ${validationOutput.slice(0, 200)}`);
+      } catch (valErr: any) {
+        validated = false;
+        validationOutput = valErr.stderr || valErr.stdout || valErr.message || 'Validation failed';
+        logger.warn(`Config validation FAILED for ${name}: ${validationOutput}`);
+
+        // Attempt to restore from backup
+        const backupPath = `${configPath}.bak`;
+        try {
+          const backupContent = await readPrivilegedFile(backupPath);
+          await writePrivilegedFile(configPath, backupContent);
+          logger.warn(`Restored ${configPath} from backup after failed validation`);
+        } catch {
+          logger.error(`Could not restore backup for ${configPath}`);
+        }
+
+        return res.status(422).json({
+          ok: false,
+          error: `Configuration syntax error — changes reverted`,
+          validationOutput,
+        });
+      }
+    }
 
     // Optionally restart the service
     if (restart) {

@@ -24,7 +24,7 @@ export default function Login() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gb-bg0-hard">
+    <div className="flex items-center justify-center min-h-screen wallpaper-bg">
       <div className="w-full max-w-sm mx-4">
         {/* ── Brand ─────────────────────────────────────────────── */}
         <div className="text-center mb-8">
@@ -42,7 +42,7 @@ export default function Login() {
         {/* ── Login Card ────────────────────────────────────────── */}
         <form
           onSubmit={handleSubmit}
-          className="bg-gb-bg0 border-2 border-gb-bg2 p-6 shadow-2xl"
+          className="bg-gb-bg0 border-2 border-gb-bg2 p-6 shadow-2xl glass-panel"
         >
           <div className="flex items-center gap-2 mb-5">
             <Lock size={18} className="text-gb-aqua" />
@@ -78,7 +78,7 @@ export default function Login() {
               autoComplete="username"
               autoFocus
               required
-              placeholder="joseph"
+              placeholder="username"
               className="w-full bg-gb-bg1 text-gb-fg1 px-3 py-2.5 text-sm border-2 border-gb-bg3 focus:border-gb-aqua focus:outline-none transition-colors placeholder:text-gb-bg4"
             />
           </div>

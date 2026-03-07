@@ -108,7 +108,6 @@ export default function RemoteDesktop() {
 
       // ── RFB event listeners ────────────────────────────────────
       rfb.addEventListener('connect', () => {
-        console.log('[noVNC] connected — enabling scaleViewport');
         rfb.scaleViewport = true;
         rfb.resizeSession = false;
         setState(STATE.CONNECTED);
@@ -116,7 +115,6 @@ export default function RemoteDesktop() {
       });
 
       rfb.addEventListener('disconnect', (e) => {
-        console.log('[noVNC] disconnected, clean:', e.detail.clean);
         connectionInProgress.current = false;
         rfbRef.current = null;
 

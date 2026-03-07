@@ -148,9 +148,47 @@ function CodeBlock({ lang, code, onCopyToTerminal }) {
         value={editableCode}
         onChange={(e) => setEditableCode(e.target.value)}
         spellCheck={false}
-        className="w-full p-3 bg-gb-bg0-hard text-xs font-mono text-gb-fg2 leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-gb-aqua/30 min-h-[2.5rem]"
+        className="w-full p-3 bg-gb-bg0-hard text-xs font-mono text-gb-fg2 leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-gb-aqua/30 min-h-10"
         rows={editableCode.split('\n').length}
       />
+    </div>
+  );
+}
+
+/* ── Typewriter animation for assistant messages ───────────────────── */
+
+function AnimatedMessage({ content, onCopyToTerminal, animate }) {
+  const [displayed, setDisplayed] = useState(animate ? '' : content);
+  const [done, setDone] = useState(!animate);
+  const idx = useRef(0);
+
+  useEffect(() => {
+    if (!animate) { setDisplayed(content); setDone(true); return; }
+    idx.current = 0;
+    setDisplayed('');
+    setDone(false);
+
+    // Chunk-based typewriter: emit small random chunks for natural feel
+    const timer = setInterval(() => {
+      const chunkSize = Math.floor(Math.random() * 3) + 1; // 1-3 chars
+      const next = Math.min(idx.current + chunkSize, content.length);
+      setDisplayed(content.slice(0, next));
+      idx.current = next;
+      if (next >= content.length) {
+        setDone(true);
+        clearInterval(timer);
+      }
+    }, 12);
+
+    return () => clearInterval(timer);
+  }, [content, animate]);
+
+  return (
+    <div className={`transition-opacity duration-300 ${done ? 'opacity-100' : 'opacity-100'}`}>
+      <MessageContent content={displayed} onCopyToTerminal={onCopyToTerminal} />
+      {!done && (
+        <span className="inline-block w-1.5 h-4 bg-gb-aqua ml-0.5 animate-pulse align-text-bottom" />
+      )}
     </div>
   );
 }
@@ -165,7 +203,7 @@ const MAX_H = 900;
 export default function AIChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hello! I am your TuxPanel AI assistant. How can I help you manage your server today?' }
+    { role: 'assistant', content: 'Hello! I am your TuxPanel AI assistant. How can I help you manage your server today?', animated: false }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -270,14 +308,15 @@ export default function AIChatbot() {
     try {
       // Send the entire conversation history to the backend
       const res = await api.post('/api/ai/chat', { messages: newMessages });
-      setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply, animated: true }]);
     } catch (err) {
       console.error('AI Chat Error:', err);
       setMessages(prev => [
         ...prev, 
         { 
           role: 'assistant', 
-          content: err.response?.data?.error || 'Error: Could not reach AI backend.' 
+          content: err.response?.data?.error || 'Error: Could not reach AI backend.',
+          animated: true
         }
       ]);
     } finally {
@@ -296,10 +335,14 @@ export default function AIChatbot() {
         <MessageSquare size={24} />
       </button>
 
-      {/* Chat Window — anchored bottom-right, resizable from top / left / top-left */}
+      {/* Chat Window — anchored bottom-right, resizable; fullscreen on mobile */}
       <div
-        className={`fixed bottom-6 right-6 bg-gb-bg0 border-2 border-gb-bg3 shadow-2xl flex flex-col origin-bottom-right z-50 overflow-hidden transition-transform transition-opacity duration-300 ${isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}`}
-        style={{ width: size.w, height: size.h, maxHeight: '90vh' }}
+        className={`fixed bg-gb-bg0 border-2 border-gb-bg3 shadow-2xl flex flex-col origin-bottom-right z-50 overflow-hidden transition-all duration-300 ${isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'} max-md:inset-0 max-md:bottom-0 max-md:right-0 md:bottom-6 md:right-6`}
+        style={{
+          width: typeof window !== 'undefined' && window.innerWidth < 768 ? '100%' : size.w,
+          height: typeof window !== 'undefined' && window.innerWidth < 768 ? '100%' : size.h,
+          maxHeight: '100vh',
+        }}
       >
         {/* ── Resize handles ──────────────────────────────────── */}
         {/* Top edge */}
@@ -345,13 +388,21 @@ export default function AIChatbot() {
                 {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
               </div>
               <div 
-                className={`max-w-[80%] p-3 text-sm border-2 border-gb-bg3 ${
+                className={`max-w-[85%] sm:max-w-[80%] p-3 text-sm border-2 border-gb-bg3 ${
                   msg.role === 'user' 
                     ? 'bg-gb-bg2 text-gb-fg1' 
                     : 'bg-gb-bg1 text-gb-fg1'
                 }`}
               >
-                <MessageContent content={msg.content} onCopyToTerminal={handleCopyToTerminal} />
+                {msg.role === 'assistant' ? (
+                  <AnimatedMessage
+                    content={msg.content}
+                    onCopyToTerminal={handleCopyToTerminal}
+                    animate={msg.animated}
+                  />
+                ) : (
+                  <MessageContent content={msg.content} onCopyToTerminal={handleCopyToTerminal} />
+                )}
               </div>
             </div>
           ))}

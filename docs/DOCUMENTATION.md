@@ -22,12 +22,12 @@ TuxPanel is a full-stack web application designed to manage a Linux system. It i
   - `AuthContext`: Manages user session, login/logout functions, and protects routes.
   - `ThemeContext`: Manages UI theming (e.g., dark/light mode).
   - `TerminalContext`: Manages WebSocket connections for the web-based terminal.
-- **Styling:** Tailwind CSS (inferred from typical Vite/React setups and class names).
+- **Styling:** Tailwind CSS 4 with a custom Gruvbox theme (dark/light modes).
 
 ### Backend (Server)
 - **Framework:** Node.js with Express.
 - **Authentication:** PAM (Pluggable Authentication Modules) via `authenticate-pam` to validate actual Linux system credentials.
-- **Command Execution:** A strict, allow-listed command runner (`commandRunner.js`) that prevents arbitrary shell execution.
+- **Command Execution:** A strict, allow-listed command runner (`commandRunner.ts`) that prevents arbitrary shell execution.
 - **Real-time Communication:** Socket.io for streaming terminal I/O and potentially container logs.
 - **Privilege Escalation:** Uses `pkexec` and Polkit rules to execute privileged commands securely without storing plaintext passwords.
 
@@ -60,7 +60,7 @@ Security is a primary focus of TuxPanel, as it provides web-based access to crit
 
 ### 2. Command Execution (No Shell Injection)
 - **No Arbitrary Shells:** The backend *never* executes arbitrary shell strings (e.g., `exec('ls ' + userInput)`).
-- **Allow-list:** Every permitted command is hardcoded in `COMMAND_REGISTRY` within `commandRunner.js`.
+- **Allow-list:** Every permitted command is hardcoded in `COMMAND_REGISTRY` within `commandRunner.ts`.
 - **Argument Sanitization:** Arguments are passed as an array to `execFile`, bypassing the shell entirely. The runner also explicitly checks arguments for illegal shell metacharacters (`;`, `&`, `|`, `$`, etc.).
 
 ### 3. Privilege Escalation (Polkit)
@@ -106,22 +106,22 @@ The main landing page. It provides a high-level overview of system health, typic
 A fully functional web-based terminal emulator (likely powered by xterm.js). It connects to the backend via WebSockets (`sockets/terminal.js`), providing the user with a direct, interactive shell session on the server.
 
 ### 4. Remote Desktop (`/rdp`)
-Provides graphical remote access to the server. Based on the backend services (`guacService.js`, `desktopService.js`), this page integrates an RDP or VNC client (likely Apache Guacamole) directly into the browser.
+Provides graphical remote access to the server's desktop session. The backend (`desktopService.ts`) auto-detects the running desktop environment and VNC server (krfb on KDE, x11vnc as fallback). A WebSocket-to-TCP proxy (`vncService.ts`) bridges noVNC in the browser to the local VNC server.
 
-### 5. Storage (`/storage`)
-Manages advanced storage features. This page interacts with BTRFS (creating/deleting subvolumes and snapshots) and manages network shares like Samba (SMB) and NFS exports.
+### 5. Disks (`/disks`)
+Manages physical block devices and advanced storage. It displays connected drives (`lsblk`), partitions, mount points (`findmnt`), SMART health status (`smartctl`), BTRFS subvolumes/snapshots, and Samba (SMB) and NFS share configuration with a semantic config editor.
 
-### 6. Disks (`/disks`)
-Focuses on physical block devices. It displays connected drives (`lsblk`), their partitions, mount points (`findmnt`), and SMART health status (`smartctl`).
+### 6. Services (`/services`)
+A GUI for `systemctl`. It lists all systemd services, showing their active/running state. Users can start, stop, restart, and view the journal logs for individual services. Also supports editing SSH server configuration with validation.
 
-### 7. Services (`/services`)
-A GUI for `systemctl`. It lists all systemd services, showing their active/running state. Users can start, stop, restart, and view the journal logs for individual services.
+### 7. Containers (`/containers`)
+A Docker management interface. It lists running and stopped containers (`docker ps`), available images, and allows users to start/stop containers, view real-time stats (`docker stats`), inspect container details, and view container logs.
 
-### 8. Containers (`/containers`)
-A Docker management interface. It lists running and stopped containers (`docker ps`), available images, and allows users to start/stop containers, view real-time stats (`docker stats`), and inspect container logs.
-
-### 9. Accounts (`/accounts`)
+### 8. Accounts (`/accounts`)
 Manages Linux users and groups. It allows administrators to create new users (`useradd`), delete users (`userdel`), modify group memberships (`usermod`), and change passwords (`chpasswd`).
 
-### 10. Troubleshooting (`/troubleshooting`)
+### 9. Troubleshooting (`/troubleshooting`)
 A diagnostic hub. It provides access to system logs (`journalctl`), kernel ring buffer messages (`dmesg`), failed systemd units, and network diagnostic tools like `ping`, `traceroute`, and `dig`.
+
+### AI Chatbot (Sidebar)
+An integrated AI assistant available from any page via the sidebar. It provides context-aware system administration help and troubleshooting guidance.

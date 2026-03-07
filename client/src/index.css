@@ -134,3 +134,12 @@ html, body, #root {
   backdrop-filter: blur(14px) saturate(1.2);
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
 }
+
+/* ── Mobile responsive helpers ─────────────────────────────────────── */
+@media (max-width: 639px) {
+  /* Tables scroll horizontally on mobile */
+  table { display: block; overflow-x: auto; }
+
+  /* Reduce card/section padding on mobile */
+  .mobile-compact { padding: 0.75rem; }
+}

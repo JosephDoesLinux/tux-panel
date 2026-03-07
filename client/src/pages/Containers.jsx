@@ -13,6 +13,12 @@ import {
   Image,
   Cpu,
   MemoryStick,
+  ChevronDown,
+  ChevronUp,
+  Network,
+  Globe,
+  HardDrive,
+  Info,
 } from 'lucide-react';
 import api from '../lib/api';
 import { formatBytes } from '../lib/utils';
@@ -150,6 +156,186 @@ function PullImageModal({ onClose, onPulled }) {
   );
 }
 
+/* ── Container Inspect Detail (expandable row) ───────────────────── */
+
+function InspectDetail({ containerId }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    api
+      .get(`/api/containers/inspect/${encodeURIComponent(containerId)}`)
+      .then((res) => setData(res.data))
+      .catch((err) => setError(err.response?.data?.error || err.message))
+      .finally(() => setLoading(false));
+  }, [containerId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-gb-fg4 p-4">
+        <Activity size={14} className="animate-pulse" /> Loading inspect data…
+      </div>
+    );
+  }
+  if (error) {
+    return <div className="text-gb-red text-xs p-4">{error}</div>;
+  }
+  if (!data) return null;
+
+  const networks = data.networks ? Object.entries(data.networks) : [];
+  const mounts = data.mounts || [];
+  const ports = data.ports ? Object.entries(data.ports) : [];
+  const env = data.env || [];
+  const state = data.state || {};
+  const resources = data.resources || {};
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+      {/* State */}
+      <div className="bg-gb-bg0 border-2 border-gb-bg2 p-3">
+        <h4 className="text-xs font-black uppercase text-gb-fg3 mb-2 flex items-center gap-1.5">
+          <Info size={12} /> State
+        </h4>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          <span className="text-gb-fg4">Status</span>
+          <span className="text-gb-fg1 font-mono">{state.status || '—'}</span>
+          <span className="text-gb-fg4">Running</span>
+          <span className={state.running ? 'text-gb-green' : 'text-gb-red'}>{state.running ? 'Yes' : 'No'}</span>
+          <span className="text-gb-fg4">PID</span>
+          <span className="text-gb-fg1 font-mono">{state.pid || '—'}</span>
+          <span className="text-gb-fg4">Exit Code</span>
+          <span className="text-gb-fg1 font-mono">{state.exitCode ?? '—'}</span>
+          <span className="text-gb-fg4">Started</span>
+          <span className="text-gb-fg3 font-mono">{state.startedAt ? new Date(state.startedAt).toLocaleString() : '—'}</span>
+          <span className="text-gb-fg4">Finished</span>
+          <span className="text-gb-fg3 font-mono">{state.finishedAt && state.finishedAt !== '0001-01-01T00:00:00Z' ? new Date(state.finishedAt).toLocaleString() : '—'}</span>
+        </div>
+        {/* Restart policy + image */}
+        <div className="mt-2 pt-2 border-t border-gb-bg2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          <span className="text-gb-fg4">Image</span>
+          <span className="text-gb-fg1 font-mono truncate">{data.image || '—'}</span>
+          <span className="text-gb-fg4">Restart</span>
+          <span className="text-gb-fg1 font-mono">{data.restartPolicy?.name || '—'}</span>
+          <span className="text-gb-fg4">Network Mode</span>
+          <span className="text-gb-fg1 font-mono">{data.networkMode || '—'}</span>
+          {data.cmd && <>
+            <span className="text-gb-fg4">CMD</span>
+            <span className="text-gb-fg3 font-mono truncate">{Array.isArray(data.cmd) ? data.cmd.join(' ') : data.cmd}</span>
+          </>}
+        </div>
+      </div>
+
+      {/* Networks */}
+      <div className="bg-gb-bg0 border-2 border-gb-bg2 p-3">
+        <h4 className="text-xs font-black uppercase text-gb-fg3 mb-2 flex items-center gap-1.5">
+          <Network size={12} /> Networks ({networks.length})
+        </h4>
+        {networks.length > 0 ? (
+          <div className="space-y-2">
+            {networks.map(([name, net]) => (
+              <div key={name} className="border border-gb-bg2 p-2">
+                <span className="text-xs font-bold text-gb-aqua uppercase">{name}</span>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs mt-1">
+                  <span className="text-gb-fg4">IP</span>
+                  <span className="text-gb-green font-mono">{net.ip || '—'}</span>
+                  <span className="text-gb-fg4">Gateway</span>
+                  <span className="text-gb-fg3 font-mono">{net.gateway || '—'}</span>
+                  <span className="text-gb-fg4">MAC</span>
+                  <span className="text-gb-fg3 font-mono">{net.mac || '—'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs text-gb-fg4">No networks</span>
+        )}
+      </div>
+
+      {/* Mounts */}
+      <div className="bg-gb-bg0 border-2 border-gb-bg2 p-3">
+        <h4 className="text-xs font-black uppercase text-gb-fg3 mb-2 flex items-center gap-1.5">
+          <HardDrive size={12} /> Mounts ({mounts.length})
+        </h4>
+        {mounts.length > 0 ? (
+          <div className="space-y-1">
+            {mounts.map((m, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs border-b border-gb-bg2 pb-1 last:border-0">
+                <span className={`px-1 py-0.5 text-[10px] font-bold uppercase border ${
+                  m.type === 'bind' ? 'text-gb-blue border-gb-blue-dim' : 'text-gb-purple border-gb-purple-dim'
+                }`}>{m.type}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-gb-fg3 font-mono truncate">{m.source}</div>
+                  <div className="text-gb-fg1 font-mono truncate">→ {m.destination}</div>
+                </div>
+                <span className={`text-[10px] font-bold ${m.rw ? 'text-gb-green' : 'text-gb-yellow'}`}>{m.rw ? 'RW' : 'RO'}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs text-gb-fg4">No mounts</span>
+        )}
+      </div>
+
+      {/* Ports & Resources */}
+      <div className="bg-gb-bg0 border-2 border-gb-bg2 p-3">
+        <h4 className="text-xs font-black uppercase text-gb-fg3 mb-2 flex items-center gap-1.5">
+          <Globe size={12} /> Ports
+        </h4>
+        {ports.length > 0 ? (
+          <div className="space-y-0.5 text-xs mb-3">
+            {ports.map(([containerPort, bindings]) => (
+              <div key={containerPort} className="flex items-center gap-2">
+                <span className="text-gb-fg4 font-mono">{containerPort}</span>
+                <span className="text-gb-fg4">→</span>
+                <span className="text-gb-aqua font-mono">
+                  {Array.isArray(bindings) ? bindings.map(b => `${b.HostIp || '0.0.0.0'}:${b.HostPort}`).join(', ') : String(bindings)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs text-gb-fg4 block mb-3">No port mappings</span>
+        )}
+
+        {/* Resources */}
+        <h4 className="text-xs font-black uppercase text-gb-fg3 mb-2 flex items-center gap-1.5 border-t border-gb-bg2 pt-2">
+          <Cpu size={12} /> Resources
+        </h4>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+          <span className="text-gb-fg4">CPU Shares</span>
+          <span className="text-gb-fg1 font-mono">{resources.cpuShares || 'default'}</span>
+          <span className="text-gb-fg4">Memory</span>
+          <span className="text-gb-fg1 font-mono">{resources.memory ? formatBytes(resources.memory) : 'unlimited'}</span>
+          <span className="text-gb-fg4">Mem Reserve</span>
+          <span className="text-gb-fg1 font-mono">{resources.memoryReservation ? formatBytes(resources.memoryReservation) : '—'}</span>
+        </div>
+      </div>
+
+      {/* Environment Variables */}
+      {env.length > 0 && (
+        <div className="bg-gb-bg0 border-2 border-gb-bg2 p-3 lg:col-span-2">
+          <h4 className="text-xs font-black uppercase text-gb-fg3 mb-2">Environment ({env.length})</h4>
+          <div className="max-h-32 overflow-auto">
+            {env.map((e, i) => {
+              const eqIdx = e.indexOf('=');
+              const key = eqIdx > -1 ? e.slice(0, eqIdx) : e;
+              const val = eqIdx > -1 ? e.slice(eqIdx + 1) : '';
+              return (
+                <div key={i} className="flex gap-2 text-xs border-b border-gb-bg2 py-0.5 last:border-0">
+                  <span className="text-gb-aqua font-mono font-bold shrink-0">{key}</span>
+                  <span className="text-gb-fg3 font-mono truncate">{val}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main Containers Page ────────────────────────────────────────── */
 
 export default function Containers() {
@@ -162,6 +348,7 @@ export default function Containers() {
   const [showPullModal, setShowPullModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [unavailable, setUnavailable] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
 
   const fetchContainers = useCallback(async () => {
     try {
@@ -244,7 +431,7 @@ export default function Containers() {
       )}
 
       {/* ── Tab bar ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
         <button
           onClick={() => setTab('containers')}
           className={`px-4 py-2 text-sm font-bold uppercase border-2 transition-colors ${
@@ -301,6 +488,7 @@ export default function Containers() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b-2 border-gb-bg2">
+                <th className="text-center px-2 py-3 font-bold text-gb-fg3 uppercase text-xs w-8" />
                 <th className="text-left px-4 py-3 font-bold text-gb-fg3 uppercase text-xs">Name</th>
                 <th className="text-left px-4 py-3 font-bold text-gb-fg3 uppercase text-xs">Image</th>
                 <th className="text-left px-4 py-3 font-bold text-gb-fg3 uppercase text-xs">Status</th>
@@ -326,8 +514,12 @@ export default function Containers() {
                   : '—';
                 const id = c.Id || c.ID || name;
 
-                return (
-                  <tr key={id} className="border-b border-gb-bg2 hover:bg-gb-bg1 transition-colors">
+                return [
+                  <tr key={id} className="border-b border-gb-bg2 hover:bg-gb-bg1 transition-colors cursor-pointer"
+                    onClick={() => setExpandedId(expandedId === id ? null : id)}>
+                    <td className="px-2 py-2.5 text-center text-gb-fg4">
+                      {expandedId === id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </td>
                     <td className="px-4 py-2.5 text-gb-fg1 font-bold">{name}</td>
                     <td className="px-4 py-2.5 text-gb-fg3 font-mono text-xs">{image}</td>
                     <td className="px-4 py-2.5">
@@ -336,7 +528,7 @@ export default function Containers() {
                     <td className="px-4 py-2.5 text-gb-fg3 text-xs font-mono">{ports}</td>
                     <td className="px-4 py-2.5 text-gb-fg3 text-xs">{created}</td>
                     <td className="px-4 py-2.5">
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                         {state === 'running' ? (
                           <>
                             <button
@@ -385,12 +577,19 @@ export default function Containers() {
                         )}
                       </div>
                     </td>
-                  </tr>
-                );
+                  </tr>,
+                  expandedId === id && (
+                    <tr key={`${id}-detail`} className="border-b border-gb-bg2 bg-gb-bg1/50">
+                      <td colSpan={7}>
+                        <InspectDetail containerId={id} />
+                      </td>
+                    </tr>
+                  ),
+                ];
               })}
               {containers.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gb-fg4">
+                  <td colSpan={7} className="px-4 py-8 text-center text-gb-fg4">
                     <Box size={32} className="mx-auto mb-2 text-gb-bg4" />
                     No containers found
                   </td>

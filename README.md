@@ -8,12 +8,12 @@
 
 ## Tech Stack
 
-| Layer       | Technology                                    |
-| ----------- | --------------------------------------------- |
-| Frontend    | React 19, Tailwind CSS 4, Vite 6, xterm.js    |
-| Backend     | Node.js 22, Express 4, Socket.io 4            |
-| Integration | node-pty (SSH/terminal), guacd (Web-RDP)      |
-| System      | systemd, Samba, NFS, firewalld, SELinux       |
+| Layer       | Technology                                         |
+| ----------- | -------------------------------------------------- |
+| Frontend    | React 19, Tailwind CSS 4, Vite 6, xterm.js, noVNC |
+| Backend     | Node.js 22, Express 4, Socket.io 4, TypeScript     |
+| Integration | node-pty (terminal), krfb/VNC (remote desktop)     |
+| System      | systemd, Samba, NFS, Docker, firewalld, SELinux    |
 
 ---
 
@@ -23,24 +23,27 @@
 tux-panel/
 ├── client/                  # React frontend (Vite)
 │   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   ├── pages/           # Route-level views
-│   │   ├── lib/             # API client, socket helpers
-│   │   └── hooks/           # Custom React hooks
+│   │   ├── components/      # Layout, AIChatbot, ConfigEditor, TerminalPane
+│   │   ├── pages/           # Dashboard, Terminal, RemoteDesktop, Disks,
+│   │   │                    # Services, Containers, Accounts, Troubleshooting
+│   │   ├── contexts/        # AuthContext, ThemeContext, TerminalContext
+│   │   ├── hooks/           # Custom React hooks (useTabSync)
+│   │   └── lib/             # API client (axios)
 │   └── vite.config.js
-├── server/                  # Express + Socket.io backend
+├── server/                  # Express + Socket.io backend (TypeScript)
 │   ├── src/
 │   │   ├── routes/          # REST API endpoints
-│   │   ├── sockets/         # Socket.io namespaces (terminal, stats)
-│   │   ├── services/        # Business logic (samba, nfs, users)
-│   │   ├── parsers/         # Config file parsers (smb.conf, exports)
-│   │   └── utils/           # Logger, commandRunner, helpers
+│   │   ├── sockets/         # Socket.io namespaces (terminal)
+│   │   ├── services/        # authService, desktopService, vncService
+│   │   ├── parsers/         # Config file parsers
+│   │   └── utils/           # Logger, commandRunner, asyncContext
 │   └── .env.example
 ├── scripts/                 # System-level setup scripts
-│   ├── install-deps.sh      # Fedora package installer
-│   ├── setup-guacd.sh       # Guacamole guacd daemon (native)
-│   └── setup-rdp.sh         # RDP server detection & setup
-├── docs/                    # Architecture & roadmap docs
+│   ├── install-deps.sh      # Fedora package installer + polkit rules
+│   └── setup-vnc.sh         # KDE VNC server (krfb) setup
+├── docs/                    # Architecture & documentation
+│   ├── ARCHITECTURE.md
+│   └── DOCUMENTATION.md
 └── package.json             # Root workspace (concurrently)
 ```
 
@@ -81,16 +84,19 @@ npm run dev
 
 ---
 
-## Development Roadmap
+## Features
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the full 4-phase plan.
-
-| Phase | Name                  | Status      |
-| ----- | --------------------- | ----------- |
-| 1     | The Core Bridge       | 🔨 Active   |
-| 2     | Identity & Storage    | ⏳ Planned  |
-| 3     | Remote Tools          | ⏳ Planned  |
-| 4     | Intelligence & UI     | ⏳ Planned  |
+| Page             | Description                                              |
+| ---------------- | -------------------------------------------------------- |
+| Dashboard        | Real-time CPU, RAM, disk, network gauges (Recharts)      |
+| Terminal         | Full web terminal (xterm.js + node-pty over WebSocket)   |
+| Remote Desktop   | In-browser VNC via noVNC + krfb WebSocket proxy          |
+| Disks            | Block devices, SMART health, BTRFS subvols, mount points |
+| Services         | systemd unit control (start/stop/restart/logs)           |
+| Containers       | Docker management (ps, images, logs, stats, inspect)     |
+| Accounts         | Linux user & group CRUD                                  |
+| Troubleshooting  | journalctl, dmesg, failed units, ping/traceroute/dig     |
+| AI Chatbot       | Integrated AI assistant for system administration help   |
 
 ---
 
@@ -98,8 +104,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the full 4-phase plan.
 
 - **OS:** Fedora 43+ (systemd-based Linux)
 - **Node.js:** 22.x LTS
-- **guacd:** Guacamole proxy daemon (Fedora native package)
-- **Packages:** samba, nfs-utils, openssh-server, util-linux
+- **Packages:** samba, nfs-utils, openssh-server, util-linux, docker
 
 ---
 

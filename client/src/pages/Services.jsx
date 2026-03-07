@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import api from '../lib/api';
 import useTabSync from '../hooks/useTabSync';
-import ConfigEditorTab from '../components/ConfigEditorTab';
+import SemanticConfigForm from '../components/SemanticConfigForm';
 import SectionHeader from '../components/shared/SectionHeader';
 import ConfirmModal from '../components/shared/ConfirmModal';
 
@@ -85,7 +85,7 @@ function JournalViewer({ unit, onClose }) {
 
 /* ── Config Editor Tab ────────────────────────────────────────────── */
 
-// ConfigEditorTab is now imported from ../components/ConfigEditorTab
+// SemanticConfigForm replaces the old ConfigEditorTab for SSH
 
 /* ── Main Services Page ──────────────────────────────────────────── */
 
@@ -270,7 +270,7 @@ export default function Services() {
 
 {/* ── Config tab (SSH) ────────────────────────────────── */}
       {tab === 'ssh' ? (
-        <ConfigEditorTab configName="ssh" />
+        <SemanticConfigForm configName="ssh" />
       ) : loading ? (
         <div className="flex items-center gap-2 text-gb-fg4 mt-8">
           <Activity size={18} className="animate-pulse" />
