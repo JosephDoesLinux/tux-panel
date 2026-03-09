@@ -11,6 +11,7 @@ import http from 'http';
 import app from './app';
 import { initSocketIO  } from './sockets';
 import { initVncProxy, getWebSocketServer  } from './services/vncService';
+import { cleanupAllBridges } from './services/rdpBridgeService';
 import { authenticateSocket } from './middleware/auth';
 import logger from './utils/logger';
 
@@ -56,6 +57,7 @@ if (vncWss) {
 // ── Graceful Shutdown ─────────────────────────────────────────────────
 function shutdown(signal: string) {
   logger.info(`Received ${signal}. Shutting down gracefully…`);
+  cleanupAllBridges();
   server.close(() => {
     logger.info('HTTP server closed.');
     process.exit(0);

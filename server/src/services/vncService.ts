@@ -1,14 +1,15 @@
 /**
  * VNC Service — WebSocket-to-TCP proxy for noVNC.
  *
- * Browser (noVNC)  ⟶  ws://host/vnc  ⟶  this proxy  ⟶  TCP 127.0.0.1:5900 (krfb)
+ * Browser (noVNC)  ⟶  ws://host/vnc  ⟶  this proxy  ⟶  TCP target (any VNC server)
  *
  * All traffic is raw RFB binary frames; we pipe bytes in both
  * directions without inspecting or modifying them.
  */
 
-import { Server as HttpServer } from 'http';
+import { Server as HttpServer, IncomingMessage } from 'http';
 import { WebSocketServer, WebSocket, RawData } from 'ws';
+import { URL } from 'url';
 import net from 'net';
 import logger from '../utils/logger';
 import { getActiveConnection } from './desktopService';
@@ -18,7 +19,7 @@ let wss: WebSocketServer | null = null;
 export function initVncProxy(server: HttpServer) {
   wss = new WebSocketServer({ noServer: true });
 
-  wss.on('connection', async (ws: WebSocket, _req: any) => {
+  wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
     logger.info('VNC WebSocket connection requested');
 
     // Track bytes for debugging
@@ -26,16 +27,32 @@ export function initVncProxy(server: HttpServer) {
     let tcpToWs = 0;
 
     try {
-      const connectionInfo: any = await getActiveConnection();
+      // ── Resolve target from query params or auto-detect ────────
+      const reqUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+      const qHost = reqUrl.searchParams.get('host');
+      const qPort = reqUrl.searchParams.get('port');
 
-      if (connectionInfo.status !== 'running') {
-        logger.warn(`VNC proxy rejected: status is '${connectionInfo.status}', not 'running'`);
-        ws.close(1008, 'No active VNC server');
-        return;
+      let host: string;
+      let port: number;
+
+      if (qHost || qPort) {
+        // Explicit target from frontend
+        host = qHost || '127.0.0.1';
+        port = qPort ? parseInt(qPort, 10) : 5900;
+        logger.info(`VNC proxy target (query) → ${host}:${port}`);
+      } else {
+        // Fallback: auto-detect active local VNC
+        const connectionInfo: any = await getActiveConnection();
+
+        if (connectionInfo.status !== 'running') {
+          logger.warn(`VNC proxy rejected: status is '${connectionInfo.status}', not 'running'`);
+          ws.close(1008, 'No active VNC server');
+          return;
+        }
+
+        port = connectionInfo.provider?.port || 5900;
+        host = connectionInfo.provider?.host || '127.0.0.1';
       }
-
-      const port = connectionInfo.provider?.port || 5900;
-      const host = connectionInfo.provider?.host || '127.0.0.1';
 
       logger.info(`Proxying VNC WebSocket → ${host}:${port}`);
 
@@ -43,7 +60,7 @@ export function initVncProxy(server: HttpServer) {
         logger.info(`TCP connected to VNC server at ${host}:${port}`);
       });
 
-      // ── WebSocket → TCP (browser → krfb) ──────────────────────
+      // ── WebSocket → TCP (browser → VNC server) ─────────────────
       ws.on('message', (data: RawData, isBinary: boolean) => {
         // noVNC always sends binary frames; convert to Buffer
         const buf = Buffer.isBuffer(data)
@@ -54,7 +71,7 @@ export function initVncProxy(server: HttpServer) {
         vncSocket.write(buf);
       });
 
-      // ── TCP → WebSocket (krfb → browser) ──────────────────────
+      // ── TCP → WebSocket (VNC server → browser) ─────────────────
       vncSocket.on('data', (data: Buffer) => {
         if (ws.readyState === WebSocket.OPEN) {
           tcpToWs += data.length;

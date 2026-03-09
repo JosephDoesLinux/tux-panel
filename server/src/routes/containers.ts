@@ -10,6 +10,15 @@ import logger from '../utils/logger';
 
 const router = Router();
 
+// Docker --format json emits one JSON object per line (NDJSON), not a JSON array.
+// This helper converts that into a proper array.
+function parseNDJSON(raw: string): any[] {
+  return raw
+    .split('\n')
+    .filter(line => line.trim())
+    .map(line => JSON.parse(line));
+}
+
 // ── Zod schemas ─────────────────────────────────────────────────────────
 const containerActionSchema = z.object({
   id: z.string().regex(/^[a-zA-Z0-9_.-]+$/, 'Invalid container ID'),
@@ -26,7 +35,7 @@ router.get('/list', async (_req: Request, res: Response, next: NextFunction) => 
   try {
     const result = await run('dockerPs');
     try {
-      const containers = JSON.parse(result.stdout);
+      const containers = parseNDJSON(result.stdout);
       res.json({ containers });
     } catch {
       res.json({ containers: [], raw: result.stdout });
@@ -45,7 +54,7 @@ router.get('/images', async (_req: Request, res: Response, next: NextFunction) =
   try {
     const result = await run('dockerImages');
     try {
-      const images = JSON.parse(result.stdout);
+      const images = parseNDJSON(result.stdout);
       res.json({ images });
     } catch {
       res.json({ images: [], raw: result.stdout });
@@ -93,7 +102,7 @@ router.get('/stats', async (_req: Request, res: Response, next: NextFunction) =>
   try {
     const result = await run('dockerStats');
     try {
-      const stats = JSON.parse(result.stdout);
+      const stats = parseNDJSON(result.stdout);
       res.json({ stats });
     } catch {
       res.json({ stats: [], raw: result.stdout });

@@ -106,7 +106,7 @@ The main landing page. It provides a high-level overview of system health, typic
 A fully functional web-based terminal emulator (likely powered by xterm.js). It connects to the backend via WebSockets (`sockets/terminal.js`), providing the user with a direct, interactive shell session on the server.
 
 ### 4. Remote Desktop (`/rdp`)
-Provides graphical remote access to the server's desktop session. The backend (`desktopService.ts`) auto-detects the running desktop environment and VNC server (krfb on KDE, x11vnc as fallback). A WebSocket-to-TCP proxy (`vncService.ts`) bridges noVNC in the browser to the local VNC server.
+Provides graphical remote access to the server's desktop or Docker containers. The backend discovery service (`discoveryService.ts`) auto-discovers all VNC and RDP endpoints on both the host and Docker containers. VNC connections are proxied directly via a WebSocket-to-TCP bridge (`vncService.ts`) to noVNC in the browser. RDP connections are bridged through an xfreerdp + Xvnc pipeline (`rdpBridgeService.ts`) that translates RDP into a local VNC endpoint, which noVNC then connects to. Users provide credentials (including username for RDP) at connect time.
 
 ### 5. Disks (`/disks`)
 Manages physical block devices and advanced storage. It displays connected drives (`lsblk`), partitions, mount points (`findmnt`), SMART health status (`smartctl`), BTRFS subvolumes/snapshots, and Samba (SMB) and NFS share configuration with a semantic config editor.

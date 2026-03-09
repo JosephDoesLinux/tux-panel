@@ -249,7 +249,12 @@ async function run(name: keyof typeof COMMAND_REGISTRY, extraArgs: string[] = []
       return { stdout: stdout.trim(), stderr: stderr.trim() };
     }
   } catch (err: any) {
-    logger.error(`exec ✗ ${name}: ${err.message}`);
+    // whichBin failures are expected (binary not installed) — log at debug
+    if (name === 'whichBin') {
+      logger.debug(`exec ✗ ${name}: ${err.message}`);
+    } else {
+      logger.error(`exec ✗ ${name}: ${err.message}`);
+    }
     throw err;
   }
 }

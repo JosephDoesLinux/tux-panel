@@ -119,7 +119,7 @@ function pamAuthenticate(username: string, password: string): Promise<void> {
 
 /**
  * Fallback: use Python3 + pam module for authentication.
- * Most Fedora systems have python3-pam or python3-python-pam installed.
+ * Most Linux distributions ship python3-pam or an equivalent package.
  */
 function pamAuthenticateFallback(username: string, password: string): Promise<void> {
   return new Promise((resolve, reject) => {

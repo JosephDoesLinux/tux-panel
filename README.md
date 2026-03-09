@@ -12,7 +12,7 @@
 | ----------- | -------------------------------------------------- |
 | Frontend    | React 19, Tailwind CSS 4, Vite 6, xterm.js, noVNC |
 | Backend     | Node.js 22, Express 4, Socket.io 4, TypeScript     |
-| Integration | node-pty (terminal), krfb/VNC (remote desktop)     |
+| Integration | node-pty (terminal), noVNC + VNC/RDP discovery (remote desktop) |
 | System      | systemd, Samba, NFS, Docker, firewalld, SELinux    |
 
 ---
@@ -27,20 +27,21 @@ tux-panel/
 │   │   ├── pages/           # Dashboard, Terminal, RemoteDesktop, Disks,
 │   │   │                    # Services, Containers, Accounts, Troubleshooting
 │   │   ├── contexts/        # AuthContext, ThemeContext, TerminalContext
-│   │   ├── hooks/           # Custom React hooks (useTabSync)
+│   │   ├── hooks/           # Custom React hooks (useRemoteDesktop, useTabSync)
 │   │   └── lib/             # API client (axios)
 │   └── vite.config.js
 ├── server/                  # Express + Socket.io backend (TypeScript)
 │   ├── src/
 │   │   ├── routes/          # REST API endpoints
 │   │   ├── sockets/         # Socket.io namespaces (terminal)
-│   │   ├── services/        # authService, desktopService, vncService
-│   │   ├── parsers/         # Config file parsers
+│   │   ├── services/        # authService, desktopService, vncService,
+│   │   │                    # discoveryService, rdpBridgeService, sessionSpawner
+│   │   ├── parsers/         # Config file parsers (reserved)
 │   │   └── utils/           # Logger, commandRunner, asyncContext
 │   └── .env.example
 ├── scripts/                 # System-level setup scripts
 │   ├── install-deps.sh      # Fedora package installer + polkit rules
-│   └── setup-vnc.sh         # KDE VNC server (krfb) setup
+│   └── setup-vnc.sh         # VNC/RDP remote access setup
 ├── docs/                    # Architecture & documentation
 │   ├── ARCHITECTURE.md
 │   └── DOCUMENTATION.md
@@ -90,7 +91,7 @@ npm run dev
 | ---------------- | -------------------------------------------------------- |
 | Dashboard        | Real-time CPU, RAM, disk, network gauges (Recharts)      |
 | Terminal         | Full web terminal (xterm.js + node-pty over WebSocket)   |
-| Remote Desktop   | In-browser VNC via noVNC + krfb WebSocket proxy          |
+| Remote Desktop   | In-browser VNC/RDP via noVNC + auto-discovery + xfreerdp bridge |
 | Disks            | Block devices, SMART health, BTRFS subvols, mount points |
 | Services         | systemd unit control (start/stop/restart/logs)           |
 | Containers       | Docker management (ps, images, logs, stats, inspect)     |

@@ -1,17 +1,47 @@
 #!/usr/bin/env bash
-# TuxPanel VNC Setup
+# ============================================================
+#  TuxPanel — Remote Desktop Setup
+#
+#  Installs VNC/RDP tooling so TuxPanel can discover and
+#  bridge remote desktop sessions. Run as root:
+#    sudo bash scripts/setup-vnc.sh
+# ============================================================
+
 set -euo pipefail
 
-echo "Installing krfb (KDE VNC server) and x11vnc..."
-dnf install -y krfb x11vnc
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 
 DESKTOP="${XDG_CURRENT_DESKTOP:-unknown}"
+PACKAGES=(tigervnc-server freerdp)
 
+# Desktop-specific VNC servers
 if [[ "$DESKTOP" == *KDE* ]]; then
-  echo "Configuring KDE VNC server (krfb)…"
-  KRFB_AUTOSTART="$HOME/.config/autostart/krfb.desktop"
-  mkdir -p "$(dirname "$KRFB_AUTOSTART")"
-  cat > "$KRFB_AUTOSTART" <<INNEREOF
+  info "Detected KDE — will install krfb"
+  PACKAGES+=(krfb)
+elif [[ "$DESKTOP" == *GNOME* ]]; then
+  info "Detected GNOME — will install gnome-remote-desktop"
+  PACKAGES+=(gnome-remote-desktop)
+else
+  info "Desktop: $DESKTOP — installing x11vnc as generic VNC server"
+  PACKAGES+=(x11vnc)
+fi
+
+info "Installing packages: ${PACKAGES[*]}"
+dnf install -y "${PACKAGES[@]}"
+
+# KDE: optional krfb autostart
+if [[ "$DESKTOP" == *KDE* ]] && command -v krfb &>/dev/null; then
+  SUDO_USER="${SUDO_USER:-$USER}"
+  KRFB_AUTOSTART="/home/$SUDO_USER/.config/autostart/krfb.desktop"
+  if [[ ! -f "$KRFB_AUTOSTART" ]]; then
+    info "Creating krfb autostart entry for $SUDO_USER"
+    mkdir -p "$(dirname "$KRFB_AUTOSTART")"
+    cat > "$KRFB_AUTOSTART" <<'INNEREOF'
 [Desktop Entry]
 Type=Application
 Name=Desktop Sharing (TuxPanel)
@@ -20,7 +50,15 @@ Hidden=false
 NoDisplay=true
 X-GNOME-Autostart-enabled=true
 INNEREOF
-  echo "krfb autostart configured. Make sure to set a password in the krfb GUI."
+    chown "$SUDO_USER:$SUDO_USER" "$KRFB_AUTOSTART"
+    info "krfb autostart configured — set a password in the krfb GUI."
+  else
+    info "krfb autostart already exists — skipping."
+  fi
 fi
 
-echo "Done!"
+info "────────────────────────────────────────"
+info "  Remote Desktop setup complete."
+info "  TuxPanel will auto-discover VNC/RDP"
+info "  servers on next /api/rdp/discover call."
+info "────────────────────────────────────────"

@@ -39,6 +39,8 @@ PACKAGES=(
 
   # Remote access
   openssh-server    # sshd
+  tigervnc-server   # Xvnc for headless VNC sessions + RDP bridge
+  freerdp           # xfreerdp for RDP-to-VNC bridging
 
   # Build tools for node-pty native compilation
   gcc-c++
