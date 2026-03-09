@@ -31,8 +31,28 @@ else
   PACKAGES+=(x11vnc)
 fi
 
+# TigerVNC headless sessions require an X11 session file in
+# /usr/share/xsessions/.  Wayland-only desktops (e.g. Fedora 43+ KDE)
+# won't have one, so install XFCE as a lightweight X11 fallback.
+if [[ ! -d /usr/share/xsessions ]] || \
+   [[ -z "$(ls -A /usr/share/xsessions/ 2>/dev/null)" ]]; then
+  info "No X11 sessions found — installing XFCE as headless VNC desktop"
+  PACKAGES+=(xfce4-session xfwm4 xfdesktop xfce4-panel xfce4-settings
+             xfce4-terminal Thunar)
+fi
+
 info "Installing packages: ${PACKAGES[*]}"
 dnf install -y "${PACKAGES[@]}"
+
+# ── Deploy tuxpanel-edit-conf.sh helper ───────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EDITCONF_SRC="${SCRIPT_DIR}/../server/scripts/tuxpanel-edit-conf.sh"
+EDITCONF_DST="/opt/tuxpanel/scripts/tuxpanel-edit-conf.sh"
+if [[ -f "$EDITCONF_SRC" ]]; then
+  info "Deploying tuxpanel-edit-conf.sh → ${EDITCONF_DST}"
+  mkdir -p "$(dirname "$EDITCONF_DST")"
+  install -m 0755 "$EDITCONF_SRC" "$EDITCONF_DST"
+fi
 
 # KDE: optional krfb autostart
 if [[ "$DESKTOP" == *KDE* ]] && command -v krfb &>/dev/null; then

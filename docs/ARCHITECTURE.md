@@ -64,8 +64,9 @@
 5. **JWT auth** — Sessions stored in httpOnly cookies (8 h expiry).
 6. **Rate limiting** — Express rate-limit on all routes.
 7. **Helmet** — Security headers (CSP, HSTS, etc.).
-8. **SELinux** — Stays enforcing; targeted booleans set for Samba.
-
+8. **SELinux** — Stays enforcing; targeted booleans set for Samba.9. **VNC session validation** — Spawner verifies X11 `.desktop` file exists
+   before starting TigerVNC, rejects Wayland-only sessions, and performs
+   a post-start health check to catch immediate crashes.
 ## Data Flow: Terminal Session
 
 ```

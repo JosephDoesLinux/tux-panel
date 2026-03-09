@@ -16,7 +16,8 @@ ALLOWED_FILES=(
 
 # Allowed path patterns (glob-style)
 ALLOWED_PATTERNS=(
-  "/home/*/.vnc/config"
+  "/home/*/.config/tigervnc/config"
+  "/home/*/.vnc/config"  # Legacy fallback
 )
 
 # Check if file is allowed

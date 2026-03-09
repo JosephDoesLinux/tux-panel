@@ -7,7 +7,7 @@
  *
  * Flow:
  *   1. Write `:N=username` into /etc/tigervnc/vncserver.users
- *   2. Ensure ~/.vnc/config has the correct `session=<de>` line
+ *   2. Ensure ~/.config/tigervnc/config has the correct `session=<de>` line
  *   3. Start `vncserver@:N.service` via systemctl
  *   4. Return the port (5900 + N) for the frontend to connect
  *
@@ -16,7 +16,7 @@
  *   - Remove the mapping from vncserver.users
  */
 
-import { readFile } from 'fs/promises';
+import { readFile, access } from 'fs/promises';
 import path from 'path';
 import { run } from '../utils/commandRunner';
 import logger from '../utils/logger';
@@ -160,7 +160,7 @@ async function removeUserMapping(display: number): Promise<void> {
 }
 
 /**
- * Ensure the user's ~/.vnc/config file has the right session.
+ * Ensure the user's ~/.config/tigervnc/config file has the right session.
  * Creates the directory if needed.
  */
 async function ensureUserVncConfig(
@@ -170,9 +170,9 @@ async function ensureUserVncConfig(
   geometry: string,
   depth: number
 ): Promise<void> {
-  const configPath = path.join(home, '.vnc', 'config');
+  const configPath = path.join(home, '.config', 'tigervnc', 'config');
 
-  // tuxpanel-edit-conf.sh auto-creates parent dirs (~/.vnc/) and
+  // tuxpanel-edit-conf.sh auto-creates parent dirs (~/.config/tigervnc/) and
   // fixes ownership for /home/* paths — no manual mkdir needed.
   //
   // localhost     → bind to 127.0.0.1 only (the WS proxy handles external access)
@@ -206,6 +206,18 @@ export async function spawnSession(req: SpawnRequest): Promise<SpawnedSession> {
 
   logger.info(`Spawning VNC session: user=${user}, session=${session}, geometry=${geometry}`);
 
+  // 0. Validate the session has an X11 desktop file (TigerVNC only supports xsessions)
+  const xsessionPath = path.join('/usr/share/xsessions', `${session}.desktop`);
+  try {
+    await access(xsessionPath);
+  } catch {
+    throw new Error(
+      `Session '${session}' not found in /usr/share/xsessions/. ` +
+      `TigerVNC requires an X11 session — Wayland-only sessions are not supported. ` +
+      `Install the X11 variant (e.g. xfce4-session, plasma-workspace-x11) to fix this.`
+    );
+  }
+
   // 1. Get user info to find their home dir
   const { stdout: passwdLine } = await run('userList', []);
   const userLine = passwdLine
@@ -236,6 +248,31 @@ export async function spawnSession(req: SpawnRequest): Promise<SpawnedSession> {
     // Cleanup the mapping on failure
     await removeUserMapping(display).catch(() => {});
     throw new Error(`Failed to start VNC session: ${err.message}`);
+  }
+
+  // 6. Brief health check — vncsession can exit instantly (status 255) even
+  //    though systemctl start "succeeded" because the unit is Type=forking.
+  //    Wait a moment then verify the unit is still active.
+  await new Promise((r) => setTimeout(r, 2000));
+  try {
+    const { stdout: statusOut } = await run('systemctlAction', [
+      'is-active', `vncserver@:${display}.service`,
+    ], { timeout: 5000 });
+    const state = statusOut.trim();
+    if (state !== 'active') {
+      await removeUserMapping(display).catch(() => {});
+      throw new Error(
+        `VNC session started but died immediately (state=${state}). ` +
+        `Check 'journalctl -u vncserver@:${display}.service' for details.`
+      );
+    }
+  } catch (err: any) {
+    // is-active exits non-zero when inactive/failed
+    await removeUserMapping(display).catch(() => {});
+    throw new Error(
+      `VNC session started but crashed immediately. ` +
+      `Check 'journalctl -u vncserver@:${display}.service' for details.`
+    );
   }
 
   const spawned: SpawnedSession = {
