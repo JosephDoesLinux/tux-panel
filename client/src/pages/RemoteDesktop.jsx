@@ -995,7 +995,7 @@ function SpawnModal({ discovery, onClose, onSpawned }) {
             >
               <option value="">Select session…</option>
               {sessions.map((s) => (
-                <option key={s.exec} value={s.exec}>
+                <option key={s.id} value={s.id}>
                   {s.name}{s.type === 'wayland' ? ' (Wayland)' : ''}
                 </option>
               ))}

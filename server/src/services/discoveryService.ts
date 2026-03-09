@@ -378,7 +378,12 @@ const CAPABILITY_BINARIES = [
   'gnome-remote-desktop', 'grdctl', 'vncviewer',
 ];
 
+/** Cache for capability binary detection (installed binaries don't change at runtime). */
+let capabilityCache: Record<string, boolean> | null = null;
+
 async function detectCapabilityBinaries(): Promise<Record<string, boolean>> {
+  if (capabilityCache) return capabilityCache;
+
   const results = await Promise.all(
     CAPABILITY_BINARIES.map(async (bin) => [bin, await whichExists(bin)] as const),
   );
@@ -387,6 +392,8 @@ async function detectCapabilityBinaries(): Promise<Record<string, boolean>> {
   for (const [bin, found] of results) {
     caps[bin] = found;
   }
+  capabilityCache = caps;
+  logger.info(`Capability scan done (cached): ${Object.entries(caps).filter(([,v]) => v).map(([k]) => k).join(', ') || 'none found'}`);
   return caps;
 }
 
