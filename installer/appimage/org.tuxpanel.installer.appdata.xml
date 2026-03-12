@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<component type="desktop-application">
+  <id>org.tuxpanel.installer</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>TuxPanel Installer</name>
+  <summary>Install and manage TuxPanel — a self-hosted Linux admin dashboard</summary>
+
+  <description>
+    <p>
+      TuxPanel is a web-based administration dashboard for Linux servers.
+      This installer provides a graphical wizard for choosing components
+      (VNC, RDP bridge, desktop environments), configuring the systemd
+      service, and managing updates.
+    </p>
+    <p>
+      After installation, a system tray indicator keeps you informed of
+      service status and lets you restart or open the dashboard with a click.
+    </p>
+  </description>
+
+  <categories>
+    <category>System</category>
+    <category>Settings</category>
+  </categories>
+
+  <url type="homepage">https://github.com/JosephDoesLinux/tux-panel</url>
+  <url type="bugtracker">https://github.com/JosephDoesLinux/tux-panel/issues</url>
+
+  <launchable type="desktop-id">org.tuxpanel.installer.desktop</launchable>
+
+  <provides>
+    <binary>tuxpanel-installer</binary>
+  </provides>
+
+  <releases>
+    <release version="1.0.0" date="2026-03-12">
+      <description>
+        <p>Initial release — install wizard, component picker, systemd integration, and system tray indicator.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+</component>

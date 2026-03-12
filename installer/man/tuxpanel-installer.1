@@ -1,0 +1,76 @@
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH TUXPANEL-INSTALLER 1 "March 2026" "tuxpanel-installer 1.0.0" "User Commands"
+.SH NAME
+tuxpanel-installer \- graphical installer and tray indicator for TuxPanel
+.SH SYNOPSIS
+.B tuxpanel-installer
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+.B tuxpanel-installer
+is a cross-distribution graphical installer for TuxPanel, a self-hosted
+Linux administration dashboard.  It can install, update, or remove TuxPanel
+and its optional components (VNC, RDP bridge, desktop environments).
+.PP
+When TuxPanel is not yet installed, the wizard walks through component
+selection, server configuration, and installation.  When TuxPanel is already
+present, it opens the component manager for adding or removing features.
+.PP
+The
+.B \-\-tray
+mode launches a system tray indicator that monitors service status and
+provides quick actions.
+.SH OPTIONS
+.TP
+.B \-\-install
+Force-launch the install wizard even if TuxPanel is already installed.
+.TP
+.B \-\-manage
+Force-open the component manager.
+.TP
+.B \-\-tray
+Start the system tray indicator without showing the wizard.
+.TP
+.BR \-\-execute " " \fIMANIFEST\fR
+(Internal) Execute an install manifest as root.  Used by the GUI via pkexec.
+.TP
+.B \-\-uninstall
+Remove TuxPanel and all managed components.
+.TP
+.B \-\-version
+Show version and exit.
+.TP
+.B \-\-help
+Show help and exit.
+.SH FILES
+.TP
+.I /opt/tuxpanel/
+Application install directory.
+.TP
+.I /etc/tuxpanel/environment
+Environment variables for the systemd service.
+.TP
+.I /etc/systemd/system/tuxpanel.service
+The systemd service unit.
+.TP
+.I /etc/polkit-1/rules.d/50-tuxpanel.rules
+Polkit authorisation rules.
+.TP
+.I /etc/xdg/autostart/tuxpanel-tray.desktop
+Autostart entry for the tray indicator.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Installation failed (see log output).
+.SH BUGS
+Report bugs at <https://github.com/JosephDoesLinux/tux-panel/issues>.
+.SH LICENSE
+GPL-3.0-or-later
+.SH AUTHORS
+Joseph Abou Antoun, Merheb Merheb.
+.SH SEE ALSO
+.BR systemctl (1),
+.BR pkexec (1),
+.BR journalctl (1)

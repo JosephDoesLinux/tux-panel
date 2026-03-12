@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=TuxPanel Installer
+GenericName=Server Administration Installer
+Comment=Install, update, or manage TuxPanel — a self-hosted Linux admin dashboard
+Exec=tuxpanel-installer
+Icon=org.tuxpanel.installer
+Terminal=false
+Categories=System;Settings;
+Keywords=server;admin;dashboard;linux;vnc;installer;
+StartupWMClass=tuxpanel-installer
+StartupNotify=true
+X-GNOME-SingleWindow=true

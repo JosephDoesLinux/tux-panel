@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Body -->
+  <ellipse cx="32" cy="40" rx="18" ry="16" fill="#2d2d44"/>
+  <!-- Belly -->
+  <ellipse cx="32" cy="42" rx="12" ry="11" fill="#e8e8f0"/>
+  <!-- Head -->
+  <circle cx="32" cy="20" r="12" fill="#2d2d44"/>
+  <!-- Eyes (X = error) -->
+  <line x1="25" y1="16" x2="29" y2="20" stroke="#e74c3c" stroke-width="1.5"/>
+  <line x1="29" y1="16" x2="25" y2="20" stroke="#e74c3c" stroke-width="1.5"/>
+  <line x1="35" y1="16" x2="39" y2="20" stroke="#e74c3c" stroke-width="1.5"/>
+  <line x1="39" y1="16" x2="35" y2="20" stroke="#e74c3c" stroke-width="1.5"/>
+  <!-- Beak -->
+  <path d="M29 23 L32 27 L35 23" fill="#f0a030" stroke="#d08020" stroke-width="0.5"/>
+  <!-- Feet -->
+  <path d="M24 54 L20 58 M24 54 L24 58 M24 54 L28 58" stroke="#f0a030" stroke-width="2" stroke-linecap="round"/>
+  <path d="M40 54 L36 58 M40 54 L40 58 M40 54 L44 58" stroke="#f0a030" stroke-width="2" stroke-linecap="round"/>
+  <!-- Flippers -->
+  <path d="M14 34 Q10 40 14 48" stroke="#2d2d44" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M50 34 Q54 40 50 48" stroke="#2d2d44" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <!-- Terminal prompt on belly -->
+  <text x="24" y="44" font-family="monospace" font-size="7" fill="#e74c3c" font-weight="bold">$_</text>
+  <!-- Status dot (red = error) -->
+  <circle cx="54" cy="10" r="5" fill="#e74c3c" stroke="#1a1a2e" stroke-width="1.5"/>
+</svg>
