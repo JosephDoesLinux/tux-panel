@@ -161,9 +161,6 @@ def _plan_steps(
     # 10.5. Install tuxpanel-installer wrapper
     steps.append(("cli-wrapper", "Installing tuxpanel-installer CLI...", _install_cli_wrapper))
 
-    # 10.6. Install Python module to system path
-    steps.append(("python-module", "Registering tuxpanel_installer module...", _install_python_module_to_system))
-
     # 11. Deploy editConf helper
     steps.append(("editconf", "Deploying editConf helper...", _install_editconf))
 
@@ -369,84 +366,73 @@ def _install_icons() -> None:
 
 
 def _install_cli_wrapper() -> None:
-    """Install tuxpanel-installer wrapper script to /usr/bin for direct CLI access."""
+    """Install tuxpanel-installer wrapper script to /usr/bin.
+    
+    This wrapper intelligently finds the installer by:
+    1. Looking for the AppImage (primary method - works on any fresh system)
+    2. Falling back to system Python if available from prior pip install
+    
+    AppImage method is preferred because it's self-contained and doesn't
+    require polluting system Python packages.
+    """
     wrapper_script = Path("/usr/bin/tuxpanel-installer")
     
-    # Create wrapper that can find the tuxpanel_installer module regardless of installation method
-    wrapper_code = """#!/usr/bin/env python3
-\"\"\"TuxPanel Installer CLI Wrapper.
+    wrapper_code = r'''#!/usr/bin/env python3
+"""TuxPanel Installer CLI Wrapper.
 
-This wrapper ensures the tuxpanel_installer module can be found by:
-1. Checking system-wide Python path
-2. Falling back to AppImage bundled path
-\"\"\"
+Intelligently finds and executes the tuxpanel_installer module:
+- First tries AppImage (self-contained, works on fresh systems)
+- Falls back to system Python if pip-installed
+"""
 import sys
 import os
+import subprocess
+from pathlib import Path
 
-# Try system Python path first (for direct package installs)
-try:
-    from tuxpanel_installer.__main__ import main
-    main()
-except ModuleNotFoundError:
-    # AppImage fallback: look for mounted AppImage
-    appimage_paths = [
-        "/tmp/.mount_TuxPan*/usr/lib/python3/dist-packages",
-        "/opt/tuxpanel/installer/lib/python3/dist-packages",
+def find_appimage():
+    """Search for installed AppImage in common locations."""
+    candidate_paths = [
+        "/opt/tuxpanel/installer/TuxPanel-Installer.AppImage",
+        "/usr/local/bin/TuxPanel-Installer.AppImage",
+        "/usr/bin/TuxPanel-Installer.AppImage",
+        os.path.expanduser("~/.local/bin/TuxPanel-Installer.AppImage"),
     ]
     
-    for pattern in appimage_paths:
-        matches = __import__("glob").glob(pattern)
-        for path in matches:
-            if os.path.isdir(path):
-                sys.path.insert(0, path)
-                try:
-                    from tuxpanel_installer.__main__ import main
-                    main()
-                    sys.exit(0)
-                except ImportError:
-                    continue
+    # Also search in directory containing this script
+    this_script = Path(__file__).resolve()
+    appimage_dir = this_script.parent
+    for item in appimage_dir.glob("*.AppImage"):
+        candidate_paths.insert(0, str(item))
     
-    # If we got here, module couldn't be found anywhere
-    print("Error: tuxpanel_installer module not found.", file=sys.stderr)
-    print("Install it with: pip install tuxpanel-installer", file=sys.stderr)
-    sys.exit(1)
-"""
+    for path in candidate_paths:
+        if Path(path).exists() and os.access(path, os.X_OK):
+            return path
+    return None
+
+def main():
+    # Try AppImage first (works on fresh systems)
+    appimage = find_appimage()
+    if appimage:
+        os.execv(appimage, [appimage] + sys.argv[1:])
+    
+    # Fall back to system Python (for development/pip installs)
+    try:
+        from tuxpanel_installer.__main__ import main as cli_main
+        cli_main()
+    except ModuleNotFoundError:
+        print("Error: tuxpanel_installer not found!", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("The tuxpanel_installer module is bundled in the AppImage.", file=sys.stderr)
+        print("Please run the AppImage directly:", file=sys.stderr)
+        print("  ./TuxPanel-Installer-1.0.0-x86_64.AppImage", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+'''
     
     wrapper_script.write_text(wrapper_code)
-    wrapper_script.chmod(0o755)  # Make executable
-
-
-def _install_python_module_to_system() -> None:
-    """Copy the tuxpanel_installer package to system Python path for direct access."""
-    import glob
-    
-    # Find the current tuxpanel_installer module location
-    # It's in the AppImage at time of execution
-    current_module = Path(__file__).parent
-    
-    # System Python site-packages locations to try
-    site_packages_paths = [
-        Path("/usr/lib/python3/dist-packages"),
-        Path("/usr/local/lib/python3/dist-packages"),
-    ]
-    
-    for dest_dir in site_packages_paths:
-        if dest_dir.exists():
-            dest_module = dest_dir / "tuxpanel_installer"
-            # Remove old version if exists
-            if dest_module.exists():
-                shutil.rmtree(dest_module)
-            # Copy module to system location
-            shutil.copytree(current_module, dest_module)
-            return
-    
-    # Fallback: create system path if needed
-    site_packages = Path("/usr/lib/python3/dist-packages")
-    site_packages.mkdir(parents=True, exist_ok=True)
-    dest_module = site_packages / "tuxpanel_installer"
-    if dest_module.exists():
-        shutil.rmtree(dest_module)
-    shutil.copytree(current_module, dest_module)
+    wrapper_script.chmod(0o755)
 
 def _generate_production_env(manifest: InstallManifest) -> None:
     """Generate production-safe .env file with secure JWT secret."""
