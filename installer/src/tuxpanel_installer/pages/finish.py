@@ -52,9 +52,13 @@ class FinishPage(QWidget):
         self._btn_open.clicked.connect(self._open_browser)
         self._btn_tray = QPushButton("Launch Tray Indicator")
         self._btn_tray.clicked.connect(self._launch_tray)
+        self._btn_logs = QPushButton("View Installation Logs")
+        self._btn_logs.clicked.connect(self._show_logs_request)
+        self._btn_logs.setVisible(False)  # Only show on failure
 
         btn_row.addWidget(self._btn_open)
         btn_row.addWidget(self._btn_tray)
+        btn_row.addWidget(self._btn_logs)
         btn_row.addStretch()
         root.addLayout(btn_row)
 
@@ -84,13 +88,14 @@ class FinishPage(QWidget):
             self._title.setText("Installation Failed")
             self._body.setText(
                 "Something went wrong during installation.<br>"
-                "Check the log on the previous page for details.<br><br>"
-                "You can file a bug at "
+                "Click <b>View Installation Logs</b> to see detailed error messages.<br><br>"
+                "If you need help, file a bug at "
                 "<a href='https://github.com/JosephDoesLinux/tux-panel/issues'>"
                 "github.com/JosephDoesLinux/tux-panel/issues</a>."
             )
             self._btn_open.setEnabled(False)
             self._btn_tray.setEnabled(False)
+            self._btn_logs.setVisible(True)
 
     # ── Actions ────────────────────────────────────────────────────────
 
@@ -104,3 +109,11 @@ class FinishPage(QWidget):
             ["tuxpanel-installer", "--tray"],
             start_new_session=True,
         )
+
+    def _show_logs_request(self) -> None:
+        """Request to show installation logs (navigates back to progress page)."""
+        if self.parent():
+            try:
+                self.parent().show_logs()  # type: ignore
+            except AttributeError:
+                pass

@@ -98,8 +98,15 @@ class InstallerWindow(QWidget):
         idx = self._current_index()
         last = self._stack.count() - 1
 
-        self._btn_back.setVisible(idx > 0 and idx < last)
+        # Allow back button from progress (3) and finish (4) pages
+        self._btn_back.setVisible(idx > 0 and (idx < 4 or idx == 4))
         self._btn_back.setEnabled(idx > 0)
+
+        # Update back button label for clarity on error screen
+        if idx == 4:  # Finish page
+            self._btn_back.setText("← View Details")
+        else:
+            self._btn_back.setText("← Back")
 
         # On the config page the button says "Install"
         if idx == 2:  # ConfigPage
@@ -117,6 +124,11 @@ class InstallerWindow(QWidget):
         if idx > 0:
             self._stack.setCurrentIndex(idx - 1)
             self._update_nav()
+
+    def show_logs(self) -> None:
+        """Navigate back to progress page to view installation logs."""
+        self._stack.setCurrentIndex(3)  # Progress page index
+        self._update_nav()
 
     def _go_next(self) -> None:
         idx = self._current_index()
