@@ -22,6 +22,7 @@ import containersRoutes from './routes/containers';
 import accountsRoutes from './routes/accounts';
 import diagnosticsRoutes from './routes/diagnostics';
 import aiRoutes from './routes/ai';
+import path from 'path';
 
 const app = express();
 
@@ -74,6 +75,19 @@ app.use('/api/containers', requireAuth, containersRoutes); // Protected
 app.use('/api/accounts',   requireAuth, accountsRoutes);   // Protected
 app.use('/api/diagnostics', requireAuth, diagnosticsRoutes); // Protected
 app.use('/api/ai',         requireAuth, aiRoutes);         // Protected
+
+// ── Serve Frontend ────────────────────────────────────────────────────
+// In production (or when packaged), we serve the built Vue/Vite client.
+const clientDistPath = path.join(__dirname, '../../client/dist');
+app.use(express.static(clientDistPath));
+
+app.get('*', (req, res, next) => {
+  // Let API and Socket.io fall through to 404/Error handlers if not caught above
+  if (req.originalUrl.startsWith('/api/') || req.originalUrl.startsWith('/socket.io/')) {
+    return next();
+  }
+  res.sendFile(path.join(clientDistPath, 'index.html'));
+});
 
 // ── Catch-All 404 ────────────────────────────────────────────────────
 app.use((_req, res) => {

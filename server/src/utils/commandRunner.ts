@@ -210,12 +210,9 @@ async function run(name: keyof typeof COMMAND_REGISTRY, extraArgs: string[] = []
   const safeArgs = [...entry.defaultArgs, ...extraArgs].map(String);
 
   // Privileged commands are elevated via pkexec using our strict wrapper
-  // In development, we use the local script, but be aware this will trigger GUI polkit prompts
-  // unless manually white-listed in dev.
-  const isDev = process.env.NODE_ENV !== 'production';
-  const wrapperPath = isDev 
-    ? require('path').resolve(__dirname, '../../scripts/tuxpanel-priv-wrapper.sh')
-    : '/opt/tuxpanel/scripts/tuxpanel-priv-wrapper.sh';
+  // The installer places this in /opt/tuxpanel/scripts and sets it strictly to root:root.
+  // Polkit relies on this absolute path. Using local dev paths would trigger a GUI password prompt.
+  const wrapperPath = '/opt/tuxpanel/scripts/tuxpanel-priv-wrapper.sh';
     
   const bin = entry.sudo ? '/usr/bin/pkexec' : entry.bin;
   const args = entry.sudo ? [
