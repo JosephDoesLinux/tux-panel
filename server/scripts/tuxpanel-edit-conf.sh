@@ -78,7 +78,7 @@ elif [[ "$ACTION" == "write" ]]; then
       fi
     fi
   fi
-  cat > "$REALPATH"
+  cat > "$REALPATH" || exit 1
   # For files under /home/*, fix ownership so the user owns their config
   if [[ "$REALPATH" =~ ^/home/([^/]+) ]]; then
     HOME_USER="${BASH_REMATCH[1]}"
