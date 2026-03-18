@@ -61,6 +61,9 @@ case "$COMMAND" in
   "/usr/sbin/sshd")
     exec /usr/sbin/sshd "$@"
     ;;
+  "/opt/tuxpanel/scripts/tuxpanel-edit-conf.sh")
+    exec /opt/tuxpanel/scripts/tuxpanel-edit-conf.sh "$@"
+    ;;
   *)
     echo "Command not allowed: $COMMAND" >&2
     exit 1
