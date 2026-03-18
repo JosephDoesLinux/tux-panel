@@ -58,6 +58,9 @@ case "$COMMAND" in
   "/usr/sbin/sshd")
     exec /usr/sbin/sshd "$@"
     ;;
+  "/usr/bin/su")
+    exec /usr/bin/su "$@"
+    ;;
   "/usr/bin/docker")
     exec /usr/bin/docker "$@"
     ;;
