@@ -130,9 +130,8 @@ html, body, #root {
 }
 
 /* Frosted glass panel — used for sidebar & header over the wallpaper */
-.glass-panel {
+@utility glass-panel {
   backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
 }
 
 /* ── Mobile responsive helpers ─────────────────────────────────────── */
