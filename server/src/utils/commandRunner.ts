@@ -212,14 +212,34 @@ async function run(name: keyof typeof COMMAND_REGISTRY, extraArgs: string[] = []
   // Privileged commands are elevated via pkexec using our strict wrapper
   // The installer places this in /opt/tuxpanel/scripts and sets it strictly to root:root.
   // Polkit relies on this absolute path. Using local dev paths would trigger a GUI password prompt.
-  const wrapperPath = '/opt/tuxpanel/scripts/tuxpanel-priv-wrapper.sh';
-    
-  const bin = entry.sudo ? '/usr/bin/pkexec' : entry.bin;
-  const args = entry.sudo ? [
+  let wrapperPath = '/opt/tuxpanel/scripts/tuxpanel-priv-wrapper.sh';
+  
+  // In development, if the system-wide strict wrapper hasn't been installed yet, gracefully fallback
+  // so the application doesn't completely crash (though it WILL trigger a GUI password prompt).
+  if (process.env.NODE_ENV !== 'production' && !require('fs').existsSync(wrapperPath)) {
+    wrapperPath = require('path').resolve(__dirname, '../../scripts/tuxpanel-priv-wrapper.sh');
+  }
+  
+  let targetBin = entry.bin;
+  if (process.env.NODE_ENV !== 'production' && targetBin === '/opt/tuxpanel/scripts/tuxpanel-edit-conf.sh') {
+    if (!require('fs').existsSync(targetBin)) {
+      targetBin = require('path').resolve(__dirname, '../../scripts/tuxpanel-edit-conf.sh');
+    }
+  }
+
+  let bin = entry.sudo ? '/usr/bin/pkexec' : targetBin;
+  let args = entry.sudo ? [
     wrapperPath,
-    entry.bin,
+    targetBin,
     ...safeArgs
   ] : safeArgs;
+
+  // In development, if using the fallback wrapper, pkexec will trigger a host GUI password prompt
+  // which freezes remote headless developers. Fallback to sudo -n to fail fast instead.
+  if (entry.sudo && process.env.NODE_ENV !== 'production' && wrapperPath !== '/opt/tuxpanel/scripts/tuxpanel-priv-wrapper.sh') {
+    bin = '/usr/bin/sudo';
+    args = ['-n', wrapperPath, targetBin, ...safeArgs];
+  }
   const timeout = opts.timeout || DEFAULT_TIMEOUT;
 
   logger.debug(`exec ▸ ${bin} ${args.join(' ')}`);

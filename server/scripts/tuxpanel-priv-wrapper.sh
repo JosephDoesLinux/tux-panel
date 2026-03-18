@@ -65,6 +65,12 @@ case "$COMMAND" in
     exec /opt/tuxpanel/scripts/tuxpanel-edit-conf.sh "$@"
     ;;
   *)
+    # For local development: allow tuxpanel-edit-conf.sh if it lives in the exact SAME directory as this wrapper
+    WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"
+    if [ "$COMMAND" = "$WRAPPER_DIR/tuxpanel-edit-conf.sh" ]; then
+      exec "$COMMAND" "$@"
+    fi
+
     echo "Command not allowed: $COMMAND" >&2
     exit 1
     ;;

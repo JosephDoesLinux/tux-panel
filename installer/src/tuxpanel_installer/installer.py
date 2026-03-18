@@ -244,6 +244,11 @@ def _deploy_app() -> None:
 
     if src_server.is_dir():
         shutil.copytree(src_server, C.SERVER_DIR, dirs_exist_ok=True)
+        # Remove duplicate unprivileged scripts from the application source directory
+        server_scripts = C.SERVER_DIR / "scripts"
+        if server_scripts.exists():
+            shutil.rmtree(server_scripts)
+
     if src_client.is_dir():
         shutil.copytree(src_client, C.CLIENT_DIR, dirs_exist_ok=True)
 

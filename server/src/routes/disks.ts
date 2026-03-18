@@ -56,6 +56,8 @@ router.get('/subvolumes', async (req: Request, res: Response, next: NextFunction
   } catch (err: any) {
     if (err.stderr?.includes('not a btrfs filesystem') || err.message?.includes('not a btrfs')) {
       return res.json({ subvolumes: [], mount: req.query.mount || '/', error: 'Not a btrfs filesystem' });
+    } else if (err.message?.includes('a password is required') || err.message?.includes('Not authorized')) {
+      return res.json({ subvolumes: [], mount: req.query.mount || '/', error: 'Permission denied (Dev Mode)' });
     }
     next(err);
   }
@@ -111,6 +113,8 @@ router.get('/snapshots', async (req: Request, res: Response, next: NextFunction)
   } catch (err: any) {
     if (err.stderr?.includes('not a btrfs filesystem') || err.message?.includes('not a btrfs')) {
       return res.json({ snapshots: [], mount: req.query.mount || '/', error: 'Not a btrfs filesystem' });
+    } else if (err.message?.includes('a password is required') || err.message?.includes('Not authorized')) {
+      return res.json({ snapshots: [], mount: req.query.mount || '/', error: 'Permission denied (Dev Mode)' });
     }
     next(err);
   }
