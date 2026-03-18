@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=TuxPanel
+GenericName=Linux Administration Dashboard
+Comment=Self-hosted web UI for managing Linux systems — services, containers, terminals, remote desktop
+Exec=xdg-open http://localhost:3001
+Icon=tuxpanel
+Terminal=false
+Categories=System;Settings;
+Keywords=server;admin;dashboard;linux;vnc;container;terminal;
+StartupWMClass=tuxpanel
+StartupNotify=true
+X-GNOME-SingleWindow=true

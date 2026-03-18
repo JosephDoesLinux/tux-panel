@@ -42,9 +42,11 @@ Issues = "https://github.com/JosephDoesLinux/tux-panel/issues"
 
 [project.scripts]
 tuxpanel-installer = "tuxpanel_installer.__main__:main"
+tuxpanel-tray = "tuxpanel_installer.tray.indicator:main"
 
 [project.gui-scripts]
 tuxpanel-installer-gui = "tuxpanel_installer.__main__:main"
+tuxpanel-tray-gui = "tuxpanel_installer.tray.indicator:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

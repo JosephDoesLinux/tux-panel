@@ -122,6 +122,12 @@ def remove_unit() -> None:
 
 def ensure_service_user() -> None:
     """Create the tuxpanel system user/group if they don't exist."""
+    # Ensure the group exists first
+    r = subprocess.run(["getent", "group", C.SERVICE_GROUP], capture_output=True)
+    if r.returncode != 0:
+        subprocess.run(["groupadd", "--system", C.SERVICE_GROUP], check=True)
+
+    # Create the user if it doesn't exist, assigning the (possibly pre-existing) group
     r = subprocess.run(["id", C.SERVICE_USER], capture_output=True)
     if r.returncode != 0:
         subprocess.run([
@@ -130,5 +136,6 @@ def ensure_service_user() -> None:
             "--no-create-home",
             "--shell", "/usr/sbin/nologin",
             "--home-dir", str(C.INSTALL_PREFIX),
+            "--gid", C.SERVICE_GROUP,    # use existing group, don't try to create one
             C.SERVICE_USER,
         ], check=True)

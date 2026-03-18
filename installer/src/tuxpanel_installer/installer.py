@@ -23,9 +23,10 @@ import os
 import shutil
 import subprocess
 import sys
+import traceback
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import TextIO
+from typing import Callable, TextIO
 
 from . import constants as C
 from .components import COMPONENT_MAP, Component
@@ -35,6 +36,7 @@ from .systemd import (
     ensure_service_user,
     generate_environment,
     generate_unit,
+    remove_unit,
     start_service,
     write_unit,
 )
@@ -89,8 +91,15 @@ def execute_manifest(manifest: InstallManifest, out: TextIO = sys.stdout) -> int
         try:
             fn()
             _emit(out, step=step_id, status="done", pct=pct + int(100 / total))
+        except subprocess.CalledProcessError as exc:
+            detail = f"{exc.cmd[0]} failed (exit {exc.returncode})"
+            if exc.stderr:
+                detail += f": {exc.stderr.strip()[-500:]}"
+            _emit(out, step=step_id, status="error", pct=pct, detail=detail)
+            return 1
         except Exception as exc:
             _emit(out, step=step_id, status="error", pct=pct, detail=str(exc))
+            traceback.print_exc(file=sys.stderr)
             return 1
 
     _emit(out, step="complete", status="done", pct=100, detail="Installation complete")
@@ -99,7 +108,7 @@ def execute_manifest(manifest: InstallManifest, out: TextIO = sys.stdout) -> int
 
 # ── Step planner ──────────────────────────────────────────────────────────
 
-StepFn = tuple[str, str, "() -> None"]  # (id, label, callable)
+StepFn = tuple[str, str, Callable[[], None]]  # (id, label, callable)
 
 
 def _plan_steps(
@@ -131,7 +140,7 @@ def _plan_steps(
     steps.append(("deploy", "Deploying TuxPanel to /opt/tuxpanel...", _deploy_app))
 
     # 5. Install npm dependencies
-    steps.append(("npm-install", "Running npm ci --production...", _npm_install))
+    steps.append(("npm-install", "Running npm ci...", _npm_install))
 
     # 6. Build client
     steps.append(("build-client", "Building web UI...", _build_client))
@@ -139,24 +148,38 @@ def _plan_steps(
     # 7. Build server
     steps.append(("build-server", "Compiling TypeScript server...", _build_server))
 
-    # 8. Deploy polkit rules
+    # 8. Prune dev dependencies for runtime footprint
+    steps.append(("npm-prune", "Pruning development dependencies...", _npm_prune_production))
+
+    # 9. Deploy polkit rules
     steps.append(("polkit", "Installing polkit rules...", _install_polkit))
 
-    # 9. Deploy editConf helper
+    # 10. Install desktop entries and icons
+    steps.append(("desktop", "Installing desktop entries and icons...", _install_desktop_entries))
+    steps.append(("icons", "Installing application icons...", _install_icons))
+
+    # 11. Deploy editConf helper
     steps.append(("editconf", "Deploying editConf helper...", _install_editconf))
 
-    # 10. Write systemd unit + environment
+    # 12. Write systemd unit + environment
     steps.append((
         "systemd",
         "Configuring systemd service...",
         lambda: _setup_systemd(manifest),
     ))
 
-    # 11. TLS (self-signed)
+    # 13. Generate production environment
+    steps.append((
+        "env-prod",
+        "Generating production environment...",
+        lambda: _generate_production_env(manifest),
+    ))
+
+    # 14. TLS (self-signed)
     if manifest.tls_mode == "self-signed":
         steps.append(("tls", "Generating self-signed certificate...", _generate_self_signed))
 
-    # 12. Firewall
+    # 15. Firewall
     if manifest.open_firewall:
         steps.append((
             "firewall",
@@ -164,16 +187,31 @@ def _plan_steps(
             lambda port=manifest.port: _open_firewall(port),
         ))
 
-    # 13. Enable + start
+    # 16. Enable + start
     if manifest.enable_on_boot:
         steps.append(("enable", "Enabling tuxpanel.service...", enable_service))
     if manifest.start_now:
         steps.append(("start", "Starting TuxPanel...", start_service))
 
-    # 14. Write version sentinel
+    # 17. Health check
+    if manifest.start_now:
+        steps.append(("health-check", "Verifying service startup...", lambda port=manifest.port: _health_check_service(port)))
+
+    # 18. Permission audit
+    steps.append(("perms-audit", "Auditing file permissions...", _audit_permissions))
+
+    # 19. Write version sentinel
     steps.append(("version", "Finalising...", _write_version))
 
+    # 20. Create post-install documentation
+    steps.append((
+        "post-install-readme",
+        "Generating post-install documentation...",
+        lambda: _create_post_install_readme(manifest),
+    ))
+
     return steps
+
 
 
 # ── Individual step implementations ───────────────────────────────────────
@@ -213,18 +251,23 @@ def _deploy_app() -> None:
 
 def _npm_install() -> None:
     subprocess.run(
-        ["npm", "ci", "--production"],
-        cwd=str(C.SERVER_DIR), check=True,
+        ["npm", "ci"],
+        cwd=str(C.SERVER_DIR), capture_output=True, text=True, check=True,
     )
 
 
 def _build_client() -> None:
-    subprocess.run(["npm", "ci"], cwd=str(C.CLIENT_DIR), check=True)
-    subprocess.run(["npm", "run", "build"], cwd=str(C.CLIENT_DIR), check=True)
+    subprocess.run(["npm", "ci"], cwd=str(C.CLIENT_DIR), capture_output=True, text=True, check=True)
+    subprocess.run(["npm", "run", "build"], cwd=str(C.CLIENT_DIR), capture_output=True, text=True, check=True)
 
 
 def _build_server() -> None:
-    subprocess.run(["npm", "run", "build"], cwd=str(C.SERVER_DIR), check=True)
+    subprocess.run(["npm", "run", "build"], cwd=str(C.SERVER_DIR), capture_output=True, text=True, check=True)
+
+
+def _npm_prune_production() -> None:
+    subprocess.run(["npm", "prune", "--omit=dev"], cwd=str(C.SERVER_DIR), capture_output=True, text=True, check=True)
+    subprocess.run(["npm", "prune", "--omit=dev"], cwd=str(C.CLIENT_DIR), capture_output=True, text=True, check=True)
 
 
 def _install_polkit() -> None:
@@ -253,11 +296,11 @@ def _setup_systemd(manifest: InstallManifest) -> None:
         node_bin=node_bin,
     )
     write_unit(unit)
-
+    
+    # Create /etc/tuxpanel directory
     C.ENVIRONMENT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    C.ENVIRONMENT_FILE.write_text(
-        generate_environment(host=manifest.host, port=manifest.port)
-    )
+    # Note: Environment file is written by _generate_production_env
+
 
 
 def _generate_self_signed() -> None:
@@ -289,10 +332,203 @@ def _open_firewall(port: int) -> None:
     # Silently skip if neither firewall tool is present
 
 
+def _install_desktop_entries() -> None:
+    """Install desktop files for main app and tray autostart."""
+    src_app = REPO_ROOT / "installer" / "appimage" / "org.tuxpanel.desktop"
+    src_tray = REPO_ROOT / "installer" / "appimage" / "tuxpanel-tray.desktop"
+    
+    # Main app desktop entry
+    if src_app.exists():
+        dest_app = C.APP_DESKTOP
+        dest_app.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_app, dest_app)
+        dest_app.chmod(0o644)
+    
+    # Tray autostart entry
+    if src_tray.exists():
+        dest_tray = C.TRAY_DESKTOP
+        dest_tray.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_tray, dest_tray)
+        dest_tray.chmod(0o644)
+
+
+def _install_icons() -> None:
+    """Install application icons to system location."""
+    src_icon = REPO_ROOT / "installer" / "src" / "tuxpanel_installer" / "resources" / "icons" / "tuxpanel.svg"
+    if src_icon.exists():
+        dest_icon = C.ICON_SYSTEM
+        dest_icon.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_icon, dest_icon)
+        dest_icon.chmod(0o644)
+
+
+def _generate_production_env(manifest: InstallManifest) -> None:
+    """Generate production-safe .env file with secure JWT secret."""
+    import secrets
+    
+    # Generate secure JWT secret (32 bytes = 256 bits of entropy)
+    jwt_secret = secrets.token_urlsafe(32)
+    
+    env_file = C.ENVIRONMENT_FILE
+    env_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Write production env with secure JWT secret
+    production_env = f"""# TuxPanel Production Environment — Auto-Generated
+NODE_ENV=production
+LOG_LEVEL=warn
+JWT_SECRET={jwt_secret}
+CORS_ORIGINS=https://localhost:{manifest.port}
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX=100
+TUXPANEL_HOST={manifest.host}
+TUXPANEL_PORT={manifest.port}
+TUXPANEL_TLS_MODE={manifest.tls_mode}
+TUXPANEL_TLS_CERT=/etc/tuxpanel/ssl/tuxpanel.crt
+TUXPANEL_TLS_KEY=/etc/tuxpanel/ssl/tuxpanel.key
+
+# Optional: Gemini API key for AI chatbot (leave blank to disable)
+# GEMINI_API_KEY=
+"""
+    
+    env_file.write_text(production_env)
+    env_file.chmod(0o640)  # Readable by tuxpanel user/group only
+    
+    # Secure ownership
+    subprocess.run(["chown", f"{C.SERVICE_USER}:{C.SERVICE_GROUP}", str(env_file)], check=True)
+
+
+def _health_check_service(port: int = C.DEFAULT_PORT) -> None:
+    """Verify service startup and port listening."""
+    import socket
+    import time
+    
+    # Wait up to 10 seconds for service to be ready
+    for attempt in range(20):  # 10 seconds with 0.5s polling
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex(('127.0.0.1', port))
+            sock.close()
+            if result == 0:
+                return  # Port is listening
+        except Exception:
+            pass
+        
+        if attempt < 19:
+            time.sleep(0.5)
+    
+    raise RuntimeError(f"Service did not start listening on port {port} within 10 seconds. Check systemctl status tuxpanel.")
+
+
+
+def _audit_permissions() -> None:
+    """Verify file permissions and ownership for security."""
+    # Check /opt/tuxpanel ownership
+    stat_opt = C.INSTALL_PREFIX.stat()
+    if stat_opt.st_uid != 0 or stat_opt.st_gid != 0:
+        # Note: Running as root, so we expect 0:0 for /opt/tuxpanel
+        pass
+    
+    # Check /etc/tuxpanel ownership and permissions
+    if C.ENVIRONMENT_FILE.exists():
+        stat_env = C.ENVIRONMENT_FILE.stat()
+        if stat_env.st_mode & 0o077 != 0:
+            # World/other readable — tighten permissions
+            C.ENVIRONMENT_FILE.chmod(0o640)
+        # Verify owner is tuxpanel:tuxpanel or at least in tuxpanel group
+        subprocess.run(["chown", f"{C.SERVICE_USER}:{C.SERVICE_GROUP}", str(C.ENVIRONMENT_FILE.parent)], check=True)
+    
+    # Check SSL directory permissions (must not be world-readable)
+    if C.SSL_DIR.exists():
+        subprocess.run(["chmod", "-R", "o-r", str(C.SSL_DIR)], check=True)
+        subprocess.run(["chown", "-R", f"{C.SERVICE_USER}:{C.SERVICE_GROUP}", str(C.SSL_DIR)], check=True)
+
+
 def _write_version() -> None:
     from . import __version__
     C.VERSION_FILE.parent.mkdir(parents=True, exist_ok=True)
     C.VERSION_FILE.write_text(__version__ + "\n")
+
+
+def _create_post_install_readme(manifest: InstallManifest) -> None:
+    """Generate post-install documentation."""
+    port = manifest.port
+    scheme = "https" if manifest.tls_mode == "self-signed" else "http"
+    
+    readme = f"""# TuxPanel Installation Complete
+
+## Quick Start
+
+Access TuxPanel at: {scheme}://localhost:{port}
+
+### Default Login
+The first admin user is the system user running the TuxPanel service.
+
+### Service Management
+```bash
+# Start the service
+sudo systemctl start tuxpanel
+
+# Stop the service
+sudo systemctl stop tuxpanel
+
+# View service logs
+sudo journalctl -u tuxpanel -f
+
+# Service status
+sudo systemctl status tuxpanel
+```
+
+## Configuration
+
+Edit the environment at: `/etc/tuxpanel/environment`
+
+Then restart the service:
+```bash
+sudo systemctl restart tuxpanel
+```
+
+## SSL Certificate
+{f"Self-signed certificate location: `/etc/tuxpanel/ssl/tuxpanel.crt`" if manifest.tls_mode == "self-signed" else "No TLS certificate configured."}
+
+## System Tray
+Access TuxPanel from the system tray indicator for quick service status and dashboard access.
+
+Enable tray autostart:
+- Add "tuxpanel-tray" to your desktop session autostart
+- Or copy `/usr/share/applications/tuxpanel-tray.desktop` to `~/.config/autostart/`
+
+## Troubleshooting
+
+### Service won't start
+Check logs:
+```bash
+sudo journalctl -u tuxpanel -n 50
+```
+
+### Port already in use
+Change the port in `/etc/tuxpanel/environment`:
+```bash
+sudo tuxpanel-edit-conf TUXPANEL_PORT=3002
+```
+
+### SSL certificate errors
+The installer generated a self-signed certificate. Browsers will show a security warning.
+To bypass: Accept the certificate in your browser, or use `http://` if TLS is disabled.
+
+## Uninstall
+To remove TuxPanel:
+```bash
+sudo tuxpanel-installer --uninstall
+```
+
+## Support
+- GitHub: {C.GITHUB_REPO}
+- Issues: {C.ISSUES_URL}
+"""
+    
+    readme_file = C.DATA_DIR / "README.POST-INSTALL.txt"
+    readme_file.write_text(readme)
 
 
 # ── Detection helpers ─────────────────────────────────────────────────────
@@ -306,3 +542,32 @@ def installed_version() -> str | None:
     if C.VERSION_FILE.exists():
         return C.VERSION_FILE.read_text().strip()
     return None
+
+
+def uninstall_all() -> int:
+    """Best-effort uninstall of TuxPanel managed assets."""
+    try:
+        remove_unit()
+
+        if C.POLKIT_RULE.exists():
+            C.POLKIT_RULE.unlink()
+
+        if C.APP_DESKTOP.exists():
+            C.APP_DESKTOP.unlink()
+        if C.TRAY_DESKTOP.exists():
+            C.TRAY_DESKTOP.unlink()
+        if C.ICON_SYSTEM.exists():
+            C.ICON_SYSTEM.unlink()
+
+        if C.ENVIRONMENT_FILE.exists():
+            C.ENVIRONMENT_FILE.unlink()
+        if C.SSL_DIR.exists():
+            shutil.rmtree(C.SSL_DIR, ignore_errors=True)
+
+        if C.INSTALL_PREFIX.exists():
+            shutil.rmtree(C.INSTALL_PREFIX, ignore_errors=True)
+
+        return 0
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
+        return 1

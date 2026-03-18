@@ -77,9 +77,18 @@ class ProgressPage(QWidget):
         tmp.close()
         self._manifest_path = Path(tmp.name)
 
-        # Resolve our own entry point
+        # Resolve our own entry point.  We must forward PYTHONPATH through
+        # pkexec so the child process can find the tuxpanel_installer package
+        # (pkexec strips the caller's environment for security).
         import sys
-        entry = [sys.executable, "-m", "tuxpanel_installer", "--execute", str(self._manifest_path)]
+        src_root = str(Path(__file__).resolve().parents[2])  # installer/src
+        python = sys.executable
+        entry = [
+            "env",
+            f"PYTHONPATH={src_root}",
+            python, "-m", "tuxpanel_installer",
+            "--execute", str(self._manifest_path),
+        ]
 
         self._proc = QProcess(self)
         self._proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)

@@ -20,7 +20,7 @@ from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
 
 from .. import constants as C
-from ..systemd import is_active, restart_service, start_service, stop_service
+from ..systemd import is_active
 
 _ICON_DIR = Path(__file__).resolve().parent.parent / "resources" / "icons"
 
@@ -34,6 +34,8 @@ class TrayIndicator(QSystemTrayIcon):
         super().__init__()
 
         self._running = False
+        self._runtime_port = C.DEFAULT_PORT
+        self._runtime_tls_mode = "self-signed"
 
         # ── Icons ──────────────────────────────────────────────────────
         self._icon_running = QIcon(str(_ICON_DIR / "tuxpanel.svg"))
@@ -104,15 +106,40 @@ class TrayIndicator(QSystemTrayIcon):
     # ── Polling ────────────────────────────────────────────────────────
 
     def _poll(self) -> None:
+        self._read_runtime_config()
         self._running = is_active()
         self._update_ui()
         self._poll_sessions()
 
+    def _read_runtime_config(self) -> None:
+        """Read runtime host/port/TLS data from /etc/tuxpanel/environment."""
+        try:
+            if not C.ENVIRONMENT_FILE.exists():
+                return
+
+            values: dict[str, str] = {}
+            for line in C.ENVIRONMENT_FILE.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                values[key.strip()] = value.strip()
+
+            port = values.get("TUXPANEL_PORT")
+            if port and port.isdigit():
+                self._runtime_port = int(port)
+
+            tls_mode = values.get("TUXPANEL_TLS_MODE")
+            if tls_mode:
+                self._runtime_tls_mode = tls_mode
+        except Exception:
+            return
+
     def _update_ui(self) -> None:
         if self._running:
             self.setIcon(self._icon_running)
-            self.setToolTip(f"TuxPanel — Running on :{C.DEFAULT_PORT}")
-            self._status_action.setText(f"● Running on :{C.DEFAULT_PORT}")
+            self.setToolTip(f"TuxPanel — Running on :{self._runtime_port}")
+            self._status_action.setText(f"● Running on :{self._runtime_port}")
             self._act_start.setEnabled(False)
             self._act_stop.setEnabled(True)
             self._act_restart.setEnabled(True)
@@ -153,18 +180,26 @@ class TrayIndicator(QSystemTrayIcon):
         subprocess.Popen(["pkexec", "systemctl", "restart", C.SERVICE_NAME])
 
     def _open_dashboard(self) -> None:
-        webbrowser.open(f"https://localhost:{C.DEFAULT_PORT}")
+        scheme = "http" if self._runtime_tls_mode == "none" else "https"
+        webbrowser.open(f"{scheme}://localhost:{self._runtime_port}")
 
     def _view_logs(self) -> None:
-        subprocess.Popen([
-            "xdg-open",
-            f"journalctl -u {C.SERVICE_NAME} --no-pager -n 200",
-        ])
-        # Fallback: open a terminal with journalctl
-        subprocess.Popen([
-            "x-terminal-emulator", "-e",
-            f"journalctl -u {C.SERVICE_NAME} -f",
-        ])
+        try:
+            subprocess.Popen([
+                "x-terminal-emulator",
+                "-e",
+                "journalctl",
+                "-u",
+                C.SERVICE_NAME,
+                "-f",
+            ])
+        except FileNotFoundError:
+            self.showMessage(
+                "TuxPanel",
+                "Could not find a terminal emulator for viewing logs.",
+                QSystemTrayIcon.MessageIcon.Warning,
+                5000,
+            )
 
     def _open_manage(self) -> None:
         subprocess.Popen(["tuxpanel-installer", "--manage"])
@@ -178,3 +213,23 @@ class TrayIndicator(QSystemTrayIcon):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
             if self._running:
                 self._open_dashboard()
+
+
+def main() -> int:
+    """Entry point for tuxpanel-tray command."""
+    import sys
+    from PyQt6.QtWidgets import QApplication
+    
+    app = QApplication(sys.argv)
+    app.setApplicationName("TuxPanel System Tray")
+    app.setApplicationVersion("1.0.0")
+    
+    tray = TrayIndicator()
+    tray.show()
+    
+    return app.exec()
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

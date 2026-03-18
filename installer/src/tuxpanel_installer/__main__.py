@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 import argparse
-import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -47,6 +48,26 @@ def main(argv: list[str] | None = None) -> None:
         from .installer import InstallManifest, execute_manifest
         manifest = InstallManifest.from_json(Path(args.execute).read_text())
         rc = execute_manifest(manifest)
+        sys.exit(rc)
+
+    # ── Uninstall mode (re-exec via pkexec if needed) ─────────────────
+    if args.uninstall:
+        from .installer import uninstall_all
+
+        if os.geteuid() != 0:
+            src_root = str(Path(__file__).resolve().parents[1])  # installer/src
+            entry = [
+                "env",
+                f"PYTHONPATH={src_root}",
+                sys.executable,
+                "-m",
+                "tuxpanel_installer",
+                "--uninstall",
+            ]
+            rc = subprocess.call(["pkexec", *entry])
+            sys.exit(rc)
+
+        rc = uninstall_all()
         sys.exit(rc)
 
     # ── Tray-only mode ─────────────────────────────────────────────────

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=TuxPanel System Tray
+GenericName=System Tray Indicator
+Comment=TuxPanel system tray appindicator for quick access to the service
+Exec=tuxpanel-tray
+Icon=tuxpanel
+Terminal=false
+Categories=System;
+Keywords=server;admin;dashboard;system-tray;indicator;
+StartupNotify=false
+Hidden=false
+X-GNOME-AutoRestart=true
