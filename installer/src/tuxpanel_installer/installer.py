@@ -284,7 +284,7 @@ def _install_polkit() -> None:
     if src.exists():
         dest = C.POLKIT_RULE
         dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest)
+        shutil.copy(src, dest)
         dest.chmod(0o644)
 
 
@@ -297,7 +297,7 @@ def _install_scripts() -> None:
         src = REPO_ROOT / "server" / "scripts" / script
         if src.exists():
             dest = dest_dir / script
-            shutil.copy2(src, dest)
+            shutil.copy(src, dest)
             dest.chmod(0o755)
             subprocess.run(["chown", "root:root", str(dest)], check=True)
 
