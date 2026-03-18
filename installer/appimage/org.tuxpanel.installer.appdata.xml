@@ -36,7 +36,7 @@
   </provides>
 
   <releases>
-    <release version="1.0.0" date="2026-03-12">
+    <release version="1.0.1" date="2026-03-12">
       <description>
         <p>Initial release — install wizard, component picker, systemd integration, and system tray indicator.</p>
       </description>
