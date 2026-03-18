@@ -39,3 +39,9 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+
+# Installer build artifacts
+installer/build/
+installer/dist/
+*.egg-info/
+

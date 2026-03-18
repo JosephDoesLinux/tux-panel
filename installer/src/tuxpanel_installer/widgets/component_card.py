@@ -33,13 +33,12 @@ class ComponentCard(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("""
             QWidget#component-card {
-                background: #1e1e2e;
-                border: 1px solid #333;
+                border: 1px solid rgba(128, 128, 128, 0.3);
                 border-radius: 8px;
                 padding: 12px 16px;
             }
             QWidget#component-card:hover {
-                border-color: #6c5ce7;
+                background: rgba(128, 128, 128, 0.1);
             }
         """)
 
@@ -64,13 +63,13 @@ class ComponentCard(QWidget):
 
         desc = QLabel(component.description)
         desc.setWordWrap(True)
-        desc.setStyleSheet("font-size: 12px; color: #999;")
+        desc.setStyleSheet("font-size: 12px;")
         info.addWidget(desc)
 
         row.addLayout(info, 1)
 
         size = QLabel(f"{component.size_mb} MB")
-        size.setStyleSheet("font-size: 12px; color: #666; min-width: 50px;")
+        size.setStyleSheet("font-size: 12px; min-width: 50px;")
         size.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         row.addWidget(size)
 

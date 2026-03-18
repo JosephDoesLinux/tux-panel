@@ -33,7 +33,7 @@ class WelcomePage(QWidget):
             "This wizard will walk you through installation and configuration."
         )
         subtitle.setWordWrap(True)
-        subtitle.setStyleSheet("font-size: 14px; color: #888;")
+        subtitle.setStyleSheet("font-size: 14px;")
         layout.addWidget(subtitle)
 
         layout.addSpacing(24)
@@ -59,6 +59,6 @@ class WelcomePage(QWidget):
 
         # ── Footer ─────────────────────────────────────────────────────
         footer = QLabel(f"Installer v{__version__}  •  GPL-3.0-or-later")
-        footer.setStyleSheet("font-size: 11px; color: #666;")
+        footer.setStyleSheet("font-size: 11px;")
         footer.setAlignment(Qt.AlignmentFlag.AlignRight)
         layout.addWidget(footer)

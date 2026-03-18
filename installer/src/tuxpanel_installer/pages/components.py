@@ -59,7 +59,7 @@ class ComponentsPage(QWidget):
             label_text, hint = _CATEGORY_LABELS.get(cat, (cat.name, ""))
             cat_label = QLabel(f"<b>{label_text}</b>  —  <i>{hint}</i>")
             cat_label.setTextFormat(Qt.TextFormat.RichText)
-            cat_label.setStyleSheet("font-size: 13px; color: #aaa; padding-top: 8px;")
+            cat_label.setStyleSheet("font-size: 13px; padding-top: 8px;")
             layout.addWidget(cat_label)
 
             for comp in comps:
@@ -72,7 +72,7 @@ class ComponentsPage(QWidget):
         # ── Total size label ───────────────────────────────────────────
         self._total_label = QLabel()
         self._total_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self._total_label.setStyleSheet("font-size: 12px; color: #888; padding: 4px 32px;")
+        self._total_label.setStyleSheet("font-size: 12px; padding: 4px 32px;")
         outer.addWidget(self._total_label)
         self._update_total()
 

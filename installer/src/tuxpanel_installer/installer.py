@@ -40,6 +40,7 @@ from .systemd import (
     start_service,
     write_unit,
 )
+from .utils import run_streaming
 
 
 # ── Manifest (serialisable plan) ──────────────────────────────────────────
@@ -261,24 +262,21 @@ def _deploy_app() -> None:
 
 
 def _npm_install() -> None:
-    subprocess.run(
-        ["npm", "ci"],
-        cwd=str(C.SERVER_DIR), capture_output=True, text=True, check=True,
-    )
+    run_streaming(["npm", "ci"], cwd=str(C.SERVER_DIR))
 
 
 def _build_client() -> None:
-    subprocess.run(["npm", "ci"], cwd=str(C.CLIENT_DIR), capture_output=True, text=True, check=True)
-    subprocess.run(["npm", "run", "build"], cwd=str(C.CLIENT_DIR), capture_output=True, text=True, check=True)
+    run_streaming(["npm", "ci"], cwd=str(C.CLIENT_DIR))
+    run_streaming(["npm", "run", "build"], cwd=str(C.CLIENT_DIR))
 
 
 def _build_server() -> None:
-    subprocess.run(["npm", "run", "build"], cwd=str(C.SERVER_DIR), capture_output=True, text=True, check=True)
+    run_streaming(["npm", "run", "build"], cwd=str(C.SERVER_DIR))
 
 
 def _npm_prune_production() -> None:
-    subprocess.run(["npm", "prune", "--omit=dev"], cwd=str(C.SERVER_DIR), capture_output=True, text=True, check=True)
-    subprocess.run(["npm", "prune", "--omit=dev"], cwd=str(C.CLIENT_DIR), capture_output=True, text=True, check=True)
+    run_streaming(["npm", "prune", "--omit=dev"], cwd=str(C.SERVER_DIR))
+    run_streaming(["npm", "prune", "--omit=dev"], cwd=str(C.CLIENT_DIR))
 
 
 def _install_polkit() -> None:

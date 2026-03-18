@@ -46,14 +46,14 @@ class ProgressPage(QWidget):
         root.addWidget(self._bar)
 
         self._step_label = QLabel("")
-        self._step_label.setStyleSheet("font-size: 13px; color: #aaa;")
+        self._step_label.setStyleSheet("font-size: 13px;")
         root.addWidget(self._step_label)
 
         self._log = QTextEdit()
         self._log.setReadOnly(True)
         self._log.setStyleSheet(
             "QTextEdit { font-family: 'JetBrains Mono', 'Fira Code', monospace; "
-            "font-size: 12px; background: #1a1a2e; color: #ccc; border-radius: 8px; "
+            "font-size: 12px; border-radius: 8px; "
             "padding: 8px; }"
         )
         root.addWidget(self._log, 1)

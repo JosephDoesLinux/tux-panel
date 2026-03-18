@@ -10,6 +10,8 @@ from enum import Enum
 from pathlib import Path
 
 
+from .utils import run_streaming
+
 class PackageManager(Enum):
     DNF = "dnf"
     APT = "apt"
@@ -93,7 +95,7 @@ def install_packages(pm: PackageManager, packages: list[str]) -> subprocess.Comp
         case _:
             raise RuntimeError(f"Unsupported package manager: {pm}")
 
-    return subprocess.run(cmd, capture_output=True, text=True, check=True)
+    return run_streaming(cmd)
 
 
 def remove_packages(pm: PackageManager, packages: list[str]) -> subprocess.CompletedProcess[str]:
@@ -114,7 +116,7 @@ def remove_packages(pm: PackageManager, packages: list[str]) -> subprocess.Compl
         case _:
             raise RuntimeError(f"Unsupported package manager: {pm}")
 
-    return subprocess.run(cmd, capture_output=True, text=True, check=True)
+    return run_streaming(cmd)
 
 
 def is_package_installed(pm: PackageManager, package: str) -> bool:

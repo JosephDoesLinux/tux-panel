@@ -81,7 +81,7 @@ class ConfigPage(QWidget):
         )
         note.setWordWrap(True)
         note.setTextFormat(Qt.TextFormat.RichText)
-        note.setStyleSheet("font-size: 12px; color: #888;")
+        note.setStyleSheet("font-size: 12px;")
         root.addWidget(note)
 
     # ── Public API ─────────────────────────────────────────────────────
