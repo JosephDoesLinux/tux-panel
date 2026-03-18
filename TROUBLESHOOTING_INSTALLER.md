@@ -14,6 +14,44 @@ When you see "Installation Failed":
 
 ---
 
+## Using the tuxpanel-installer CLI
+
+After successfully installing TuxPanel Installer, you can also run the installer from the command line:
+
+```bash
+# Create a manifest file
+cat > /tmp/manifest.json << 'EOF'
+{
+  "component_ids": ["server", "client"],
+  "host": "localhost",
+  "port": 3001,
+  "enable_on_boot": true,
+  "start_now": true,
+  "open_firewall": false,
+  "tls_mode": "self-signed",
+  "admin_user": "your-username"
+}
+EOF
+
+# Run the installer with privilege escalation
+pkexec tuxpanel-installer --execute /tmp/manifest.json
+
+# View progress in real time (logs will appear as JSON-Lines)
+```
+
+### Common CLI Errors
+
+**"No module named tuxpanel_installer"**
+- This happens if the installer's Python module isn't registered after installation
+- **Fix:** The installer now automatically registers the module to `/usr/lib/python3/dist-packages/`
+- If it still fails, manually copy the module:
+```bash
+sudo mkdir -p /usr/lib/python3/dist-packages
+sudo cp -r /opt/tuxpanel/installer/tuxpanel_installer /usr/lib/python3/dist-packages/
+```
+
+---
+
 ## Manual Troubleshooting Commands
 
 If you're stuck or want to debug before attempting install again:
