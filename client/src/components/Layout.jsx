@@ -487,7 +487,7 @@ export default function Layout() {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         {/* ── Mobile sidebar overlay ────────────────────────────── */}
         {isMobile && sidebarOpen && (
           <div
@@ -520,11 +520,13 @@ export default function Layout() {
 
         {/* ── Notification Sidebar ─────────────────────────────── */}
         <aside
-          className={`flex flex-col bg-gb-bg0 glass-panel border-l-2 border-gb-bg2 transition-all duration-200 overflow-hidden ${
-            notifOpen ? 'w-72' : 'w-0 border-l-0'
+          className={`absolute top-4 right-4 flex flex-col bg-gb-bg0 glass-panel border-2 border-gb-bg2 shadow-2xl transition-all duration-300 z-50 overflow-hidden ${
+            notifOpen
+              ? 'w-72 sm:w-80 opacity-100 max-h-[85vh] translate-y-0 translate-x-0'
+              : 'w-72 sm:w-80 opacity-0 max-h-[85vh] -translate-y-4 translate-x-4 pointer-events-none'
           }`}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b-2 border-gb-bg2 shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b-2 border-gb-bg2 shrink-0 bg-gb-bg1/50 backdrop-blur-sm">
             <h2 className="text-sm font-black text-gb-fg0 uppercase tracking-wide">Events</h2>
             <div className="flex items-center gap-1">
               {notifications.length > 0 && (

@@ -2,5 +2,5 @@
 # Copyright 2026 TuxPanel Contributors
 """TuxPanel Installer — cross-distro graphical installer and tray indicator."""
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __app_id__ = "org.tuxpanel.installer"

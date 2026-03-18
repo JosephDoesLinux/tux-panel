@@ -222,7 +222,7 @@ def main() -> int:
     
     app = QApplication(sys.argv)
     app.setApplicationName("TuxPanel System Tray")
-    app.setApplicationVersion("1.0.1")
+    app.setApplicationVersion("1.0.2")
     
     tray = TrayIndicator()
     tray.show()

@@ -2,7 +2,7 @@
 
 > A modern, Node-based orchestration dashboard for Linux — managing NAS functions, remote access, and system health from a single pane of glass.
 
-**Built for Fedora** (initially Fedora 43 KDE) with a reactive JS stack that replaces legacy PHP panels.
+**Built for modern Linux** with a reactive JS stack that replaces legacy PHP panels. Features a seamless Python-based graphical installer packaged as an AppImage for cross-distro compatibility.
 
 ---
 
@@ -12,6 +12,7 @@
 | ----------- | -------------------------------------------------- |
 | Frontend    | React 19, Tailwind CSS 4, Vite 6, xterm.js, noVNC |
 | Backend     | Node.js 22, Express 4, Socket.io 4, TypeScript     |
+| Installer   | Python 3, PyQt6, AppImage, Polkit                  |
 | Integration | node-pty (terminal), noVNC + VNC/RDP discovery (remote desktop) |
 | System      | systemd, Samba, NFS, Docker, firewalld, SELinux    |
 
@@ -19,32 +20,18 @@
 
 ## Project Structure
 
-```
+```text
 tux-panel/
 ├── client/                  # React frontend (Vite)
-│   ├── src/
-│   │   ├── components/      # Layout, AIChatbot, ConfigEditor, TerminalPane
-│   │   ├── pages/           # Dashboard, Terminal, RemoteDesktop, Disks,
-│   │   │                    # Services, Containers, Accounts, Troubleshooting
-│   │   ├── contexts/        # AuthContext, ThemeContext, TerminalContext
-│   │   ├── hooks/           # Custom React hooks (useRemoteDesktop, useTabSync)
-│   │   └── lib/             # API client (axios)
-│   └── vite.config.js
+│   ├── src/                 # Dashboard, Terminal, RemoteDesktop, Disks, etc.
+│   └── vite.config.js       # Builds to dist/
 ├── server/                  # Express + Socket.io backend (TypeScript)
-│   ├── src/
-│   │   ├── routes/          # REST API endpoints
-│   │   ├── sockets/         # Socket.io namespaces (terminal)
-│   │   ├── services/        # authService, desktopService, vncService,
-│   │   │                    # discoveryService, rdpBridgeService, sessionSpawner
-│   │   ├── parsers/         # Config file parsers (reserved)
-│   │   └── utils/           # Logger, commandRunner, asyncContext
-│   └── .env.example
-├── scripts/                 # System-level setup scripts
-│   ├── install-deps.sh      # Fedora package installer + polkit rules
-│   └── setup-vnc.sh         # VNC/RDP remote access setup
-├── docs/                    # Architecture & documentation
-│   ├── ARCHITECTURE.md
-│   └── DOCUMENTATION.md
+│   ├── src/                 # REST API endpoints, WebSockets, system services
+│   └── scripts/             # System wrappers (tuxpanel-priv-wrapper.sh)
+├── installer/               # Python PyQt6 GUI Installer & system tray
+│   ├── build-appimage.sh    # Script to bundle the installer into an AppImage
+│   └── src/                 # Installer logic, distro detection, polkit integration
+├── scripts/                 # System-level setup scripts for dev 
 └── package.json             # Root workspace (concurrently)
 ```
 
@@ -52,34 +39,35 @@ tux-panel/
 
 ## Quick Start
 
+### For End-Users (Recommended)
+1. Download the latest `TuxPanel-Installer-*.AppImage` from the Releases page.
+2. Make it executable:
+   ```bash
+   chmod +x TuxPanel-Installer-*.AppImage
+   ```
+3. Run the installer to open the GUI wizard. The installer handles system dependencies, daemon setup, and polkit escalation automatically.
+
+### For Developers (From Source)
+
 ```bash
 # 1 — Clone
 git clone git@github.com:JosephDoesLinux/tux-panel.git
 cd tux-panel
 
-# 2 — System dependencies (Fedora)
-#     Also installs polkit rules so the tuxpanel group can
-#     manage services, users, and power without password prompts.
-sudo bash scripts/install-deps.sh
+# 2 — Install Node packages and build
+npm run install:all
+npm run build
 
-# 3 — Create the tuxpanel group & add your user
+# 3 — Set up the developer environment (Fedora target)
 sudo groupadd tuxpanel
 sudo usermod -aG tuxpanel $USER
 # Log out and back in for group to take effect
 
-# 4 — Re-run the installer so polkit rules pick up the new group
 sudo bash scripts/install-deps.sh
-
-# 5 — PAM service config
 echo -e 'auth       required     pam_unix.so\naccount    required     pam_unix.so' | sudo tee /etc/pam.d/tuxpanel
-
-# 6 — Install Node packages
-npm run install:all
-
-# 7 — Copy env
 cp server/.env.example server/.env
 
-# 8 — Run dev servers (API on :3001, UI on :5173)
+# 4 — Run dev servers (API on :3001, UI on :5173)
 npm run dev
 ```
 
@@ -89,26 +77,30 @@ npm run dev
 
 | Page             | Description                                              |
 | ---------------- | -------------------------------------------------------- |
-| Dashboard        | Real-time CPU, RAM, disk, network gauges (Recharts)      |
+| Dashboard        | Real-time CPU, RAM, disk, network gauges                 |
 | Terminal         | Full web terminal (xterm.js + node-pty over WebSocket)   |
-| Remote Desktop   | In-browser VNC/RDP via noVNC + auto-discovery + xfreerdp bridge |
-| Disks            | Block devices, SMART health, BTRFS subvols, mount points |
+| Remote Desktop   | In-browser VNC/RDP via noVNC + systemd integration       |
+| Disks            | Block devices, SMART health, BTRFS subvols, mounts       |
 | Services         | systemd unit control (start/stop/restart/logs)           |
 | Containers       | Docker management (ps, images, logs, stats, inspect)     |
 | Accounts         | Linux user & group CRUD                                  |
-| Troubleshooting  | journalctl, dmesg, failed units, ping/traceroute/dig     |
-| AI Chatbot       | Integrated AI assistant for system administration help   |
+| Troubleshooting  | journalctl, dmesg, failed units, network tools           |
+| AI Chatbot       | Integrated AI assistant for system administration        |
 
 ---
 
-## System Requirements
+## Architecture & Security
 
-- **OS:** Fedora 43+ (systemd-based Linux)
-- **Node.js:** 22.x LTS
-- **Packages:** samba, nfs-utils, openssh-server, util-linux, docker
+TuxPanel emphasizes security by completely avoiding arbitrary shell commands (`sudo` / `exec`).
+1. **No shell execution** — All commands use localized arguments and bypass interactive shells.
+2. **Polkit Integration** — Custom `pkexec` wrappers and polkit rules are utilized rather than relying on `sudo` passwords.
+3. **Allow-listed Commands** — The backend strictly verifies every executable against a static whitelist before passing it to `tuxpanel-priv-wrapper.sh`.
+4. **AppImage Extensibility** — The installer handles system placement (`/opt/tuxpanel`) while letting the backend Node daemon operate efficiently via `systemd`.
+
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) and [DOCUMENTATION.md](docs/DOCUMENTATION.md) for more details.
 
 ---
 
 ## License
 
-MIT © JosephDoesLinux
+MIT © JosephDoesLinux & Merheb Merheb
