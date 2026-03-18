@@ -158,6 +158,12 @@ def _plan_steps(
     steps.append(("desktop", "Installing desktop entries and icons...", _install_desktop_entries))
     steps.append(("icons", "Installing application icons...", _install_icons))
 
+    # 10.5. Install tuxpanel-installer wrapper
+    steps.append(("cli-wrapper", "Installing tuxpanel-installer CLI...", _install_cli_wrapper))
+
+    # 10.6. Install Python module to system path
+    steps.append(("python-module", "Registering tuxpanel_installer module...", _install_python_module_to_system))
+
     # 11. Deploy editConf helper
     steps.append(("editconf", "Deploying editConf helper...", _install_editconf))
 
@@ -361,6 +367,86 @@ def _install_icons() -> None:
         shutil.copy2(src_icon, dest_icon)
         dest_icon.chmod(0o644)
 
+
+def _install_cli_wrapper() -> None:
+    """Install tuxpanel-installer wrapper script to /usr/bin for direct CLI access."""
+    wrapper_script = Path("/usr/bin/tuxpanel-installer")
+    
+    # Create wrapper that can find the tuxpanel_installer module regardless of installation method
+    wrapper_code = """#!/usr/bin/env python3
+\"\"\"TuxPanel Installer CLI Wrapper.
+
+This wrapper ensures the tuxpanel_installer module can be found by:
+1. Checking system-wide Python path
+2. Falling back to AppImage bundled path
+\"\"\"
+import sys
+import os
+
+# Try system Python path first (for direct package installs)
+try:
+    from tuxpanel_installer.__main__ import main
+    main()
+except ModuleNotFoundError:
+    # AppImage fallback: look for mounted AppImage
+    appimage_paths = [
+        "/tmp/.mount_TuxPan*/usr/lib/python3/dist-packages",
+        "/opt/tuxpanel/installer/lib/python3/dist-packages",
+    ]
+    
+    for pattern in appimage_paths:
+        matches = __import__("glob").glob(pattern)
+        for path in matches:
+            if os.path.isdir(path):
+                sys.path.insert(0, path)
+                try:
+                    from tuxpanel_installer.__main__ import main
+                    main()
+                    sys.exit(0)
+                except ImportError:
+                    continue
+    
+    # If we got here, module couldn't be found anywhere
+    print("Error: tuxpanel_installer module not found.", file=sys.stderr)
+    print("Install it with: pip install tuxpanel-installer", file=sys.stderr)
+    sys.exit(1)
+"""
+    
+    wrapper_script.write_text(wrapper_code)
+    wrapper_script.chmod(0o755)  # Make executable
+
+
+def _install_python_module_to_system() -> None:
+    """Copy the tuxpanel_installer package to system Python path for direct access."""
+    import glob
+    
+    # Find the current tuxpanel_installer module location
+    # It's in the AppImage at time of execution
+    current_module = Path(__file__).parent
+    
+    # System Python site-packages locations to try
+    site_packages_paths = [
+        Path("/usr/lib/python3/dist-packages"),
+        Path("/usr/local/lib/python3/dist-packages"),
+    ]
+    
+    for dest_dir in site_packages_paths:
+        if dest_dir.exists():
+            dest_module = dest_dir / "tuxpanel_installer"
+            # Remove old version if exists
+            if dest_module.exists():
+                shutil.rmtree(dest_module)
+            # Copy module to system location
+            shutil.copytree(current_module, dest_module)
+            return
+    
+    # Fallback: create system path if needed
+    site_packages = Path("/usr/lib/python3/dist-packages")
+    site_packages.mkdir(parents=True, exist_ok=True)
+    dest_module = site_packages / "tuxpanel_installer"
+    if dest_module.exists():
+        shutil.rmtree(dest_module)
+    shutil.copytree(current_module, dest_module)
 
 def _generate_production_env(manifest: InstallManifest) -> None:
     """Generate production-safe .env file with secure JWT secret."""
