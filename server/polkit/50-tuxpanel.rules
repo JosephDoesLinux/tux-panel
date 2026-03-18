@@ -39,18 +39,7 @@ polkit.addRule(function (action, subject) {
   if (action.id === "org.freedesktop.policykit.exec") {
     var program = action.lookup("program");
     var allowed = [
-      "/usr/bin/systemctl",
-      "/usr/bin/kill",
-      "/usr/bin/useradd",
-      "/usr/bin/userdel",
-      "/usr/bin/usermod",
-      "/usr/bin/chpasswd",
-      "/usr/bin/smartctl",
-      "/usr/bin/btrfs",
-      "/usr/bin/mount",
-      "/usr/bin/umount",
-      "/usr/sbin/ausearch",
-      "/usr/bin/lastb",
+      "/opt/tuxpanel/scripts/tuxpanel-priv-wrapper.sh",
       "/opt/tuxpanel/scripts/tuxpanel-edit-conf.sh"
     ];
     for (var i = 0; i < allowed.length; i++) {

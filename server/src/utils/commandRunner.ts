@@ -209,9 +209,13 @@ async function run(name: keyof typeof COMMAND_REGISTRY, extraArgs: string[] = []
   // Sanitise: every arg must be a string
   const safeArgs = [...entry.defaultArgs, ...extraArgs].map(String);
 
-  // Privileged commands are elevated via pkexec
+  // Privileged commands are elevated via pkexec using our strict wrapper
   const bin = entry.sudo ? '/usr/bin/pkexec' : entry.bin;
-  const args = entry.sudo ? [entry.bin, ...safeArgs] : safeArgs;
+  const args = entry.sudo ? [
+    '/opt/tuxpanel/scripts/tuxpanel-priv-wrapper.sh',
+    entry.bin,
+    ...safeArgs
+  ] : safeArgs;
   const timeout = opts.timeout || DEFAULT_TIMEOUT;
 
   logger.debug(`exec ▸ ${bin} ${args.join(' ')}`);

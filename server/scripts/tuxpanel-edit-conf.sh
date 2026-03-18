@@ -23,9 +23,22 @@ ALLOWED_PATTERNS=(
 # Check if file is allowed
 is_allowed=0
 
+# Resolve real path to prevent directory traversal
+if [[ -e "$FILE" ]]; then
+  REALPATH=$(readlink -f "$FILE")
+else
+  # If it doesn't exist yet, evaluate the directory
+  DIR_PART=$(dirname "$FILE")
+  if [[ -d "$DIR_PART" ]]; then
+    REALPATH="$(readlink -f "$DIR_PART")/$(basename "$FILE")"
+  else
+    REALPATH="$FILE"
+  fi
+fi
+
 # Exact matches
 for allowed in "${ALLOWED_FILES[@]}"; do
-  if [[ "$FILE" == "$allowed" ]]; then
+  if [[ "$REALPATH" == "$allowed" ]]; then
     is_allowed=1
     break
   fi
@@ -35,9 +48,12 @@ done
 if [[ $is_allowed -eq 0 ]]; then
   for pattern in "${ALLOWED_PATTERNS[@]}"; do
     # shellcheck disable=SC2254
-    if [[ "$FILE" == $pattern ]]; then
-      is_allowed=1
-      break
+    if [[ "$REALPATH" == $pattern ]]; then
+      # additional anti-traversal check to ensure it stays in /home
+      if [[ "$REALPATH" =~ ^/home/[^/]+ ]]; then
+        is_allowed=1
+        break
+      fi
     fi
   done
 fi
@@ -48,10 +64,10 @@ if [[ $is_allowed -eq 0 ]]; then
 fi
 
 if [[ "$ACTION" == "read" ]]; then
-  cat "$FILE"
+  cat "$REALPATH"
 elif [[ "$ACTION" == "write" ]]; then
   # Auto-create parent directory if needed
-  PARENT_DIR=$(dirname "$FILE")
+  PARENT_DIR=$(dirname "$REALPATH")
   if [[ ! -d "$PARENT_DIR" ]]; then
     mkdir -p "$PARENT_DIR"
     # For /home/* paths, fix ownership to the home directory user
@@ -62,12 +78,12 @@ elif [[ "$ACTION" == "write" ]]; then
       fi
     fi
   fi
-  cat > "$FILE"
+  cat > "$REALPATH"
   # For files under /home/*, fix ownership so the user owns their config
-  if [[ "$FILE" =~ ^/home/([^/]+) ]]; then
+  if [[ "$REALPATH" =~ ^/home/([^/]+) ]]; then
     HOME_USER="${BASH_REMATCH[1]}"
     if id "$HOME_USER" &>/dev/null; then
-      chown "$HOME_USER:$(id -gn "$HOME_USER")" "$FILE"
+      chown "$HOME_USER:$(id -gn "$HOME_USER")" "$REALPATH"
     fi
   fi
 else

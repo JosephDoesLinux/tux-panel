@@ -161,8 +161,8 @@ def _plan_steps(
     # 10.5. Install tuxpanel-installer wrapper
     steps.append(("cli-wrapper", "Installing tuxpanel-installer CLI...", _install_cli_wrapper))
 
-    # 11. Deploy editConf helper
-    steps.append(("editconf", "Deploying editConf helper...", _install_editconf))
+    # 11. Deploy privileged helper scripts
+    steps.append(("scripts", "Deploying helper scripts...", _install_scripts))
 
     # 12. Write systemd unit + environment
     steps.append((
@@ -247,9 +247,12 @@ def _deploy_app() -> None:
     if src_client.is_dir():
         shutil.copytree(src_client, C.CLIENT_DIR, dirs_exist_ok=True)
 
-    # Fix ownership
-    subprocess.run(["chown", "-R", f"{C.SERVICE_USER}:{C.SERVICE_GROUP}", str(C.INSTALL_PREFIX)],
-                   check=True)
+    # Fix ownership: server, client, and data belong to the service user,
+    # but scripts MUST remain root:root to prevent privilege escalation.
+    for d in (C.SERVER_DIR, C.CLIENT_DIR, C.DATA_DIR):
+        if d.exists():
+            subprocess.run(["chown", "-R", f"{C.SERVICE_USER}:{C.SERVICE_GROUP}", str(d)], check=True)
+    subprocess.run(["chown", "-R", "root:root", str(C.SCRIPTS_DIR)], check=True)
 
 
 def _npm_install() -> None:
@@ -282,13 +285,18 @@ def _install_polkit() -> None:
         dest.chmod(0o644)
 
 
-def _install_editconf() -> None:
-    src = REPO_ROOT / "server" / "scripts" / "tuxpanel-edit-conf.sh"
-    if src.exists():
-        dest = C.SCRIPTS_DIR / "tuxpanel-edit-conf.sh"
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest)
-        dest.chmod(0o755)
+def _install_scripts() -> None:
+    dest_dir = C.SCRIPTS_DIR
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    
+    scripts = ["tuxpanel-edit-conf.sh", "tuxpanel-priv-wrapper.sh"]
+    for script in scripts:
+        src = REPO_ROOT / "server" / "scripts" / script
+        if src.exists():
+            dest = dest_dir / script
+            shutil.copy2(src, dest)
+            dest.chmod(0o755)
+            subprocess.run(["chown", "root:root", str(dest)], check=True)
 
 
 def _setup_systemd(manifest: InstallManifest) -> None:
@@ -307,7 +315,10 @@ def _setup_systemd(manifest: InstallManifest) -> None:
 
 
 def _generate_self_signed() -> None:
+    # Ensure SSL directory is created with secure permissions to prevent
+    # brief exposure of the private key before it's chmodded.
     C.SSL_DIR.mkdir(parents=True, exist_ok=True)
+    C.SSL_DIR.chmod(0o700)
     cert = C.SSL_DIR / "tuxpanel.crt"
     key = C.SSL_DIR / "tuxpanel.key"
     if cert.exists() and key.exists():
@@ -390,23 +401,10 @@ import subprocess
 from pathlib import Path
 
 def find_appimage():
-    """Search for installed AppImage in common locations."""
-    candidate_paths = [
-        "/opt/tuxpanel/installer/TuxPanel-Installer.AppImage",
-        "/usr/local/bin/TuxPanel-Installer.AppImage",
-        "/usr/bin/TuxPanel-Installer.AppImage",
-        os.path.expanduser("~/.local/bin/TuxPanel-Installer.AppImage"),
-    ]
-    
-    # Also search in directory containing this script
-    this_script = Path(__file__).resolve()
-    appimage_dir = this_script.parent
-    for item in appimage_dir.glob("*.AppImage"):
-        candidate_paths.insert(0, str(item))
-    
-    for path in candidate_paths:
-        if Path(path).exists() and os.access(path, os.X_OK):
-            return path
+    """Return the static expected path of the installed AppImage."""
+    candidate = "/opt/tuxpanel/installer/TuxPanel-Installer.AppImage"
+    if Path(candidate).exists() and os.access(candidate, os.X_OK):
+        return candidate
     return None
 
 def main():
