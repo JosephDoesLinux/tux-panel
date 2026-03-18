@@ -34,7 +34,13 @@ app.use((req, res, next) => {
 });
 
 // ── Security ──────────────────────────────────────────────────────────
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Vite's styles/scripts often conflict
+    hsts: false,                  // Prevent forced HTTPS (ERR_SSL_PROTOCOL_ERROR) on HTTP connections
+    crossOriginEmbedderPolicy: false, 
+  })
+);
 
 app.use(
   cors({

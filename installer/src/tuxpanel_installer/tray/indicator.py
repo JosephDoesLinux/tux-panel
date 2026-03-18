@@ -46,55 +46,55 @@ class TrayIndicator(QSystemTrayIcon):
         self.setToolTip("TuxPanel — checking…")
 
         # ── Context menu ───────────────────────────────────────────────
-        menu = QMenu()
+        self._menu = QMenu()
 
         self._status_action = QAction("TuxPanel")
         self._status_action.setEnabled(False)
-        menu.addAction(self._status_action)
+        self._menu.addAction(self._status_action)
 
-        menu.addSeparator()
+        self._menu.addSeparator()
 
         self._act_open = QAction("Open Dashboard")
         self._act_open.triggered.connect(self._open_dashboard)
-        menu.addAction(self._act_open)
+        self._menu.addAction(self._act_open)
 
-        menu.addSeparator()
+        self._menu.addSeparator()
 
         self._act_start = QAction("▶  Start Server")
         self._act_start.triggered.connect(self._do_start)
-        menu.addAction(self._act_start)
+        self._menu.addAction(self._act_start)
 
         self._act_stop = QAction("■  Stop Server")
         self._act_stop.triggered.connect(self._do_stop)
-        menu.addAction(self._act_stop)
+        self._menu.addAction(self._act_stop)
 
         self._act_restart = QAction("↻  Restart Server")
         self._act_restart.triggered.connect(self._do_restart)
-        menu.addAction(self._act_restart)
+        self._menu.addAction(self._act_restart)
 
-        menu.addSeparator()
+        self._menu.addSeparator()
 
         self._sessions_action = QAction("Active sessions: …")
         self._sessions_action.setEnabled(False)
-        menu.addAction(self._sessions_action)
+        self._menu.addAction(self._sessions_action)
 
-        menu.addSeparator()
+        self._menu.addSeparator()
 
-        act_logs = QAction("View Logs…")
+        act_logs = QAction("View Logs…", self._menu)
         act_logs.triggered.connect(self._view_logs)
-        menu.addAction(act_logs)
+        self._menu.addAction(act_logs)
 
-        act_manage = QAction("Manage Components…")
+        act_manage = QAction("Manage Components…", self._menu)
         act_manage.triggered.connect(self._open_manage)
-        menu.addAction(act_manage)
+        self._menu.addAction(act_manage)
 
-        menu.addSeparator()
+        self._menu.addSeparator()
 
-        act_quit = QAction("Quit Tray")
+        act_quit = QAction("Quit Tray", self._menu)
         act_quit.triggered.connect(self._quit)
-        menu.addAction(act_quit)
+        self._menu.addAction(act_quit)
 
-        self.setContextMenu(menu)
+        self.setContextMenu(self._menu)
         self.activated.connect(self._on_activated)
 
         # ── Polling timer ──────────────────────────────────────────────

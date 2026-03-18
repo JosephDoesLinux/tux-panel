@@ -1,6 +1,6 @@
 {
   "name": "tux-panel",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "TuxPanel — A modern Node-based orchestration dashboard for Linux NAS & remote access",
   "author": "JosephDoesLinux",

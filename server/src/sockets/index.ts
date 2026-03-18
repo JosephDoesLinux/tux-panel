@@ -22,20 +22,21 @@ function initSocketIO(httpServer: http.Server) {
     pingInterval: 10_000,
   });
 
-  // ── Authentication middleware for all namespaces ────────────────
-  io.use((socket: any, next) => {
-    const user = authenticateSocket(socket.handshake.headers.cookie || '');
+  const authMiddleware = (socket: any, next: any) => {
+    const cookieHeader = socket.handshake.headers.cookie || '';
+    const user = authenticateSocket(cookieHeader);
     if (!user) {
       logger.warn(`Socket auth failed from ${socket.handshake.address}`);
       return next(new Error('Authentication required'));
     }
     socket.user = user;
     next();
-  });
+  };
 
   // ── Namespaces ────────────────────────────────────────────────────
   // /terminal — interactive PTY shell
   const terminalNs = io.of('/terminal');
+  terminalNs.use(authMiddleware);
   terminalNs.on('connection', (socket) => {
     logger.info(`Terminal socket connected: ${socket.id}`);
     attachTerminalHandlers(socket);
@@ -43,6 +44,7 @@ function initSocketIO(httpServer: http.Server) {
 
   // /stats — live system metrics push (Phase 4)
   const statsNs = io.of('/stats');
+  statsNs.use(authMiddleware);
   statsNs.on('connection', (socket) => {
     logger.info(`Stats socket connected: ${socket.id}`);
     // TODO: Phase 4 — push CPU/mem/disk stats on interval

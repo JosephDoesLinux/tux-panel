@@ -8,6 +8,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import http from 'http';
+import https from 'https';
+import fs from 'fs';
 import app from './app';
 import { initSocketIO  } from './sockets';
 import { initVncProxy, getWebSocketServer  } from './services/vncService';
@@ -15,10 +17,30 @@ import { cleanupAllBridges } from './services/rdpBridgeService';
 import { authenticateSocket } from './middleware/auth';
 import logger from './utils/logger';
 
-const PORT = parseInt(process.env.PORT || '3001', 10);
+const PORT = parseInt(process.env.TUXPANEL_PORT || process.env.PORT || '3001', 10);
+const TLS_MODE = process.env.TUXPANEL_TLS_MODE || 'none';
 
 // ── HTTP + WebSocket Server ───────────────────────────────────────────
-const server = http.createServer(app);
+let server: http.Server | https.Server;
+
+if (TLS_MODE === 'self-signed') {
+  const certPath = process.env.TUXPANEL_TLS_CERT || '/etc/tuxpanel/ssl/tuxpanel.crt';
+  const keyPath = process.env.TUXPANEL_TLS_KEY || '/etc/tuxpanel/ssl/tuxpanel.key';
+  
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    const options = {
+      key: fs.readFileSync(keyPath),
+      cert: fs.readFileSync(certPath)
+    };
+    server = https.createServer(options, app);
+    logger.info(`Starting server in HTTPS (self-signed) mode`);
+  } else {
+    logger.warn(`TLS mode is self-signed but certs missing. Falling back to HTTP.`);
+    server = http.createServer(app);
+  }
+} else {
+  server = http.createServer(app);
+}
 
 // IMPORTANT: Socket.io MUST attach first so its upgrade listener is registered.
 initSocketIO(server);
@@ -70,6 +92,7 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 // ── Start ─────────────────────────────────────────────────────────────
 server.listen(PORT, () => {
-  logger.info(`🐧 TuxPanel server running on http://0.0.0.0:${PORT}`);
+  const scheme = (server as any) instanceof https.Server ? 'https' : 'http';
+  logger.info(`🐧 TuxPanel server running on ${scheme}://0.0.0.0:${PORT}`);
   logger.info(`   Environment : ${process.env.NODE_ENV || 'development'}`);
 });

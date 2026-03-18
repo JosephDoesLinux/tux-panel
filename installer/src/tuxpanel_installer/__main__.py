@@ -79,13 +79,68 @@ def main(argv: list[str] | None = None) -> None:
     _launch_gui(force_install=args.install, force_manage=args.manage)
 
 
+def _is_dark_theme() -> bool:
+    """Check Freedesktop settings portal for dark-scheme preference."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            [
+                "dbus-send",
+                "--reply-timeout=100",
+                "--print-reply=literal",
+                "--dest=org.freedesktop.portal.Desktop",
+                "/org/freedesktop/portal/desktop",
+                "org.freedesktop.portal.Settings.Read",
+                "string:org.freedesktop.appearance",
+                "string:color-scheme"
+            ],
+            capture_output=True,
+            text=True,
+            timeout=1
+        )
+        return "uint32 1" in result.stdout
+    except Exception:
+        return False
+
+
 def _launch_gui(*, force_install: bool = False, force_manage: bool = False) -> None:
     """Initialise Qt and show the wizard or the manager."""
     from PyQt6.QtWidgets import QApplication
 
     from .app import InstallerWindow
 
+    # Set some sensible environment defaults for Wayland if not set
+    if sys.platform.startswith("linux"):
+        if "QT_QPA_PLATFORM" not in os.environ:
+            os.environ["QT_QPA_PLATFORM"] = "wayland;xcb"
+        if "QT_QPA_PLATFORMTHEME" not in os.environ:
+            # Let standard gtk3 bridging attempt to pull the native UI
+            os.environ["QT_QPA_PLATFORMTHEME"] = "gtk3"
+
     app = QApplication(sys.argv)
+    
+    # Fallback palette injection if the system GTK/Qt bridging isn't actively working
+    if sys.platform.startswith("linux") and app.style().objectName() != "gtk3":
+        app.setStyle("Fusion")
+        if _is_dark_theme():
+            from PyQt6.QtGui import QPalette, QColor
+            from PyQt6.QtCore import Qt
+            p = QPalette()
+            p.setColor(QPalette.ColorRole.Window, QColor(40, 40, 40))
+            p.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
+            p.setColor(QPalette.ColorRole.Base, QColor(30, 30, 30))
+            p.setColor(QPalette.ColorRole.AlternateBase, QColor(40, 40, 40))
+            p.setColor(QPalette.ColorRole.ToolTipBase, Qt.GlobalColor.white)
+            p.setColor(QPalette.ColorRole.ToolTipText, Qt.GlobalColor.white)
+            p.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.white)
+            p.setColor(QPalette.ColorRole.Button, QColor(60, 60, 60))
+            p.setColor(QPalette.ColorRole.ButtonText, Qt.GlobalColor.white)
+            p.setColor(QPalette.ColorRole.BrightText, Qt.GlobalColor.red)
+            p.setColor(QPalette.ColorRole.Link, QColor(42, 130, 218))
+            p.setColor(QPalette.ColorRole.Highlight, QColor(42, 130, 218))
+            p.setColor(QPalette.ColorRole.HighlightedText, Qt.GlobalColor.black)
+            app.setPalette(p)
+
     app.setApplicationName("TuxPanel Installer")
     app.setApplicationVersion(__version__)
     app.setOrganizationName("TuxPanel")
@@ -101,8 +156,39 @@ def _launch_tray() -> None:
     from PyQt6.QtWidgets import QApplication
 
     from .tray.indicator import TrayIndicator
+    
+    # Set some sensible environment defaults for Wayland if not set
+    if sys.platform.startswith("linux"):
+        if "QT_QPA_PLATFORM" not in os.environ:
+            os.environ["QT_QPA_PLATFORM"] = "wayland;xcb"
+        if "QT_QPA_PLATFORMTHEME" not in os.environ:
+            # Let standard gtk3 bridging attempt to pull the native UI
+            os.environ["QT_QPA_PLATFORMTHEME"] = "gtk3"
 
     app = QApplication(sys.argv)
+    
+    # Fallback palette injection
+    if sys.platform.startswith("linux") and app.style().objectName() != "gtk3":
+        app.setStyle("Fusion")
+        if _is_dark_theme():
+            from PyQt6.QtGui import QPalette, QColor
+            from PyQt6.QtCore import Qt
+            p = QPalette()
+            p.setColor(QPalette.ColorRole.Window, QColor(40, 40, 40))
+            p.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
+            p.setColor(QPalette.ColorRole.Base, QColor(30, 30, 30))
+            p.setColor(QPalette.ColorRole.AlternateBase, QColor(40, 40, 40))
+            p.setColor(QPalette.ColorRole.ToolTipBase, Qt.GlobalColor.white)
+            p.setColor(QPalette.ColorRole.ToolTipText, Qt.GlobalColor.white)
+            p.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.white)
+            p.setColor(QPalette.ColorRole.Button, QColor(60, 60, 60))
+            p.setColor(QPalette.ColorRole.ButtonText, Qt.GlobalColor.white)
+            p.setColor(QPalette.ColorRole.BrightText, Qt.GlobalColor.red)
+            p.setColor(QPalette.ColorRole.Link, QColor(42, 130, 218))
+            p.setColor(QPalette.ColorRole.Highlight, QColor(42, 130, 218))
+            p.setColor(QPalette.ColorRole.HighlightedText, Qt.GlobalColor.black)
+            app.setPalette(p)
+
     app.setApplicationName("TuxPanel Tray")
     app.setApplicationVersion(__version__)
     app.setOrganizationName("TuxPanel")

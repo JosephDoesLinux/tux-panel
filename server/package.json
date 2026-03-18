@@ -1,6 +1,6 @@
 {
   "name": "tux-panel-server",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "TuxPanel backend — Express + Socket.io + system orchestration",
   "main": "dist/server.js",
@@ -22,7 +22,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "node-pty": "^1.1.0",
-    "socket.io": "^4.8.1",
+    "socket.io": "^4.8.3",
     "winston": "^3.17.0",
     "ws": "^8.19.0",
     "zod": "^4.3.6"

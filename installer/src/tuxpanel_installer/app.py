@@ -118,6 +118,7 @@ class InstallerWindow(QWidget):
 
         self._btn_cancel.setVisible(idx < 3)  # hide during/after install
         self._btn_next.setVisible(True)
+        self._btn_next.setEnabled(idx != 3)  # disable while installing
 
     def _go_back(self) -> None:
         idx = self._current_index()

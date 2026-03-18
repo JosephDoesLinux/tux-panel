@@ -76,7 +76,9 @@ class FinishPage(QWidget):
             self._icon.setText("✔")
             self._title.setText("Installation Complete")
             self._body.setText(
-                f"TuxPanel is running at <b>{url}</b><br><br>"
+                f"TuxPanel's fully unified Server and Dashboard is now available!<br><br>"
+                f"You can access the UI at: <b><a href='{url}'>{url}</a></b><br><br>"
+                f"<i>Note: The frontend UI and backend API share the same port in production.</i><br><br>"
                 f"Systemd service: <code>tuxpanel.service</code> "
                 f"({'enabled' if manifest.enable_on_boot else 'not enabled'})<br>"
                 f"Tray indicator: <code>tuxpanel-tray</code>"

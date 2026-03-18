@@ -42,8 +42,8 @@ function attachTerminalHandlers(socket: any) {
     }
 
     const username = socket.user?.username || socket.user?.sub;
-    const bin = username ? '/usr/bin/su' : DEFAULT_SHELL;
-    const args = username ? ['-', username] : [];
+    const bin = username ? "/usr/bin/pkexec" : DEFAULT_SHELL;
+    const args = username ? ["/opt/tuxpanel/scripts/tuxpanel-priv-wrapper.sh", "/usr/bin/su", "-", username] : [];
 
     ptyProcess = pty.spawn(bin, args, {
       name: 'xterm-256color',

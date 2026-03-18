@@ -104,11 +104,12 @@ function pamAuthenticate(username: string, password: string): Promise<void> {
       const pam = require('authenticate-pam');
       pam.authenticate(username, password, (err: any) => {
         if (err) {
-          reject(new Error('PAM authentication failed'));
+          logger.warn(`authenticate-pam failed (likely due to unprivileged node process), trying wrapper fallback. Error: ${err}`);
+          pamAuthenticateFallback(username, password).then(resolve).catch(reject);
         } else {
           resolve();
         }
-      }, { serviceName: 'tuxpanel', remoteHost: 'localhost' });
+      }, { serviceName: 'login', remoteHost: 'localhost' });
     } catch (loadErr) {
       // authenticate-pam not available — fall back to subprocess
       logger.warn('authenticate-pam not available, trying fallback auth');
@@ -118,57 +119,17 @@ function pamAuthenticate(username: string, password: string): Promise<void> {
 }
 
 /**
- * Fallback: use Python3 + pam module for authentication.
- * Most Linux distributions ship python3-pam or an equivalent package.
+ * Fallback: use pkexec so python runs as root, bypassing unprivileged pam restrictions.
  */
 function pamAuthenticateFallback(username: string, password: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const py = spawn('python3', [
-      '-c',
-      `
-import sys, ctypes, ctypes.util
-
-# Load libpam
-_libpam = ctypes.CDLL(ctypes.util.find_library("pam"))
-
-# PAM conversation callback type
-CONV_FUNC = ctypes.CFUNCTYPE(
-    ctypes.c_int,
-    ctypes.c_int,
-    ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p)),
-    ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p)),
-    ctypes.c_void_p,
-)
-
-class PamConv(ctypes.Structure):
-    _fields_ = [("conv", CONV_FUNC), ("appdata_ptr", ctypes.c_void_p)]
-
-class PamResponse(ctypes.Structure):
-    _fields_ = [("resp", ctypes.c_char_p), ("resp_retcode", ctypes.c_int)]
-
-password = sys.stdin.read().strip().encode()
-
-def conv_func(num_msg, msg, resp, appdata):
-    response = PamResponse()
-    response.resp = ctypes.create_string_buffer(password).value
-    response.resp_retcode = 0
-    resp_array = (PamResponse * 1)(response)
-    resp[0] = ctypes.cast(resp_array, ctypes.POINTER(ctypes.c_void_p))
-    return 0
-
-conv = PamConv(CONV_FUNC(conv_func), None)
-handle = ctypes.c_void_p()
-retval = _libpam.pam_start(b"tuxpanel", sys.argv[1].encode(), ctypes.byref(conv), ctypes.byref(handle))
-if retval != 0:
-    sys.exit(1)
-retval = _libpam.pam_authenticate(handle, 0)
-_libpam.pam_end(handle, retval)
-sys.exit(0 if retval == 0 else 1)
-`,
+    const py = spawn('pkexec', [
+      '/opt/tuxpanel/scripts/tuxpanel-priv-wrapper.sh',
+      'auth',
       username,
     ], { stdio: ['pipe', 'pipe', 'pipe'] });
 
-    py.stdin.write(password);
+    py.stdin.write(password + '\n');
     py.stdin.end();
 
     let stderr = '';
@@ -183,7 +144,7 @@ sys.exit(0 if retval == 0 else 1)
     });
 
     py.on('error', (err) => {
-      reject(new Error(`Cannot spawn python3: ${err.message}`));
+      reject(new Error(`Cannot spawn pkexec helper: ${err.message}`));
     });
   });
 }

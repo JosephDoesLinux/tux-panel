@@ -18,9 +18,8 @@ export function corsOriginValidator(
   if (!origin) return callback(null, true);
   // Allow configured origins
   if (allowedOrigins.includes(origin)) return callback(null, true);
-  // Allow any LAN origin during development
+  // Allow any LAN origin (fixes Vite's crossorigin module scripts sending Origin header in prod)
   if (
-    process.env.NODE_ENV !== 'production' &&
     /^https?:\/\/(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin)
   ) {
     return callback(null, true);

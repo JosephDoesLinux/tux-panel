@@ -134,7 +134,7 @@ def ensure_service_user() -> None:
             "useradd",
             "--system",
             "--no-create-home",
-            "--shell", "/usr/sbin/nologin",
+            "--shell", "/bin/bash",
             "--home-dir", str(C.INSTALL_PREFIX),
             "--gid", C.SERVICE_GROUP,    # use existing group, don't try to create one
             C.SERVICE_USER,

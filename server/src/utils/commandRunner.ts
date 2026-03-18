@@ -113,7 +113,7 @@ const COMMAND_REGISTRY = {
   systemctlReload:{ bin: '/usr/bin/systemctl',      defaultArgs: ['reload'],               sudo: true },
 
   // ─── Journald ─────────────────────────────────────────────────
-  journalctl:     { bin: '/usr/bin/journalctl',     defaultArgs: [],                       sudo: false },
+  journalctl:     { bin: '/usr/bin/journalctl',     defaultArgs: [], sudo: true },
 
   // ─── Process Management ───────────────────────────────────────
   ps:             { bin: '/usr/bin/ps',              defaultArgs: ['aux', '--no-headers'],  sudo: false },
@@ -153,13 +153,13 @@ const COMMAND_REGISTRY = {
   editConf:       { bin: '/opt/tuxpanel/scripts/tuxpanel-edit-conf.sh', defaultArgs: [],    sudo: true },
 
   // ─── Docker Container Management ──────────────────────────────
-  dockerPs:       { bin: '/usr/bin/docker',          defaultArgs: ['ps', '-a', '--format', 'json'], sudo: false },
-  dockerImages:   { bin: '/usr/bin/docker',          defaultArgs: ['images', '--format', 'json'],   sudo: false },
-  dockerAction:   { bin: '/usr/bin/docker',          defaultArgs: [],                               sudo: false },
-  dockerLogs:     { bin: '/usr/bin/docker',          defaultArgs: ['logs'],                         sudo: false },
-  dockerStats:    { bin: '/usr/bin/docker',          defaultArgs: ['stats', '--no-stream', '--format', 'json'], sudo: false },
-  dockerPull:     { bin: '/usr/bin/docker',          defaultArgs: ['pull'],                         sudo: false },
-  dockerInspect:  { bin: '/usr/bin/docker',          defaultArgs: ['inspect'],                      sudo: false },
+  dockerPs:       { bin: '/usr/bin/docker',          defaultArgs: ['ps', '-a', '--format', 'json'], sudo: true },
+  dockerImages:   { bin: '/usr/bin/docker',          defaultArgs: ['images', '--format', 'json'], sudo: true },
+  dockerAction:   { bin: '/usr/bin/docker',          defaultArgs: [], sudo: true },
+  dockerLogs:     { bin: '/usr/bin/docker',          defaultArgs: ['logs'], sudo: true },
+  dockerStats:    { bin: '/usr/bin/docker',          defaultArgs: ['stats', '--no-stream', '--format', 'json'], sudo: true },
+  dockerPull:     { bin: '/usr/bin/docker',          defaultArgs: ['pull'], sudo: true },
+  dockerInspect:  { bin: '/usr/bin/docker',          defaultArgs: ['inspect'], sudo: true },
 
   // ─── Firewall ─────────────────────────────────────────────────
   firewalldState:      { bin: '/usr/bin/firewall-cmd', defaultArgs: ['--state'],              sudo: false },
@@ -174,7 +174,7 @@ const COMMAND_REGISTRY = {
   hostnamectl:    { bin: '/usr/bin/hostnamectl',        defaultArgs: [],                         sudo: false },
   lspci:          { bin: '/usr/sbin/lspci',             defaultArgs: [],                         sudo: false },
   lsusb:          { bin: '/usr/bin/lsusb',              defaultArgs: [],                         sudo: false },
-  dmesg:          { bin: '/usr/bin/dmesg',              defaultArgs: ['--time-format', 'reltime', '--nopager'], sudo: false },
+  dmesg:          { bin: '/usr/bin/dmesg',              defaultArgs: ['--time-format', 'reltime', '--nopager'], sudo: true },
   failedUnits:    { bin: '/usr/bin/systemctl',          defaultArgs: ['--failed', '--no-pager', '--plain'], sudo: false },
   ausearch:       { bin: '/usr/sbin/ausearch',          defaultArgs: ['-m', 'AVC', '--raw'],     sudo: true },
   ping:           { bin: '/usr/bin/ping',               defaultArgs: ['-c', '4', '-W', '3'],     sudo: false },
@@ -184,7 +184,7 @@ const COMMAND_REGISTRY = {
   upSince:        { bin: '/usr/bin/uptime',             defaultArgs: ['-s'],                     sudo: false },
 
   // ─── Remote Desktop ──────────────────────────────────────────
-  ssListening:    { bin: '/usr/bin/ss',               defaultArgs: ['-tlnp'],                  sudo: false },
+  ssListening:    { bin: '/usr/bin/ss',               defaultArgs: ['-tlnp'], sudo: true },
   whichBin:       { bin: '/usr/bin/which',             defaultArgs: [],                         sudo: false },
 
   // ─── Power Management ─────────────────────────────────────────

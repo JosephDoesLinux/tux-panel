@@ -31,7 +31,7 @@ class ConfigPage(QWidget):
         root.setContentsMargins(32, 32, 32, 32)
         root.setSpacing(16)
 
-        title = QLabel("Server Configuration")
+        title = QLabel("Dashboard Configuration (Frontend & Backend)")
         title.setObjectName("page-title")
         title.setStyleSheet("font-size: 22px; font-weight: 700;")
         root.addWidget(title)
