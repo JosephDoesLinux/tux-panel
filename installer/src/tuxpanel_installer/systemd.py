@@ -39,8 +39,8 @@ def generate_unit(
 
         # Hardening
         NoNewPrivileges=false
-        ProtectSystem=strict
-        ProtectHome=read-only
+        ProtectSystem=full
+        ProtectHome=false
         ReadWritePaths={C.DATA_DIR} /tmp
         PrivateTmp=true
 
