@@ -33,7 +33,7 @@ export default function useRemoteDesktop() {
   /* ── Display settings ─────────────────────────────────────────── */
   const [scaleViewport, setScaleViewport] = useState(true);
   const [clipToWindow, setClipToWindow] = useState(false);
-  const [resizeSession, setResizeSession] = useState(false);
+  const [resizeSession, setResizeSession] = useState(true);
   const [viewOnly, setViewOnly] = useState(false);
   const [qualityLevel, setQualityLevel] = useState(6);
   const [compressionLevel, setCompressionLevel] = useState(2);

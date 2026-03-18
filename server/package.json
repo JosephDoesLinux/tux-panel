@@ -1,6 +1,6 @@
 {
   "name": "tux-panel-server",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "TuxPanel backend — Express + Socket.io + system orchestration",
   "main": "dist/server.js",

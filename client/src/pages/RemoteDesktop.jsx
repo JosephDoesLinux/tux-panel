@@ -27,6 +27,8 @@ import {
   Container,
   User,
   Wifi,
+  PanelLeft,
+  PanelRight,
 } from 'lucide-react';
 import api from '../lib/api';
 import useRemoteDesktop, { CONN } from '../hooks/useRemoteDesktop';
@@ -44,6 +46,9 @@ export default function RemoteDesktop() {
   const [discoveryLoading, setDiscoveryLoading] = useState(true);
   const [discoveryError, setDiscoveryError] = useState(null);
   const pollRef = useRef(null);
+
+  /* ── Sidebar state ───────────────────────────────────────────── */
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   /* ── Managed sessions ────────────────────────────────────────── */
   const [managedSessions, setManagedSessions] = useState([]);
@@ -152,7 +157,13 @@ export default function RemoteDesktop() {
     if (!el) return;
     const ro = new ResizeObserver(() => {
       const rfb = rd.rfbRef.current;
-      if (rfb && rfb._display) rfb.scaleViewport = rfb.scaleViewport;
+      if (rfb && rfb._display) {
+        rfb.scaleViewport = rfb.scaleViewport;
+        if (rfb.resizeSession) {
+          // Re-assigning resizeSession triggers noVNC to evaluate the new size
+          rfb.resizeSession = rfb.resizeSession;
+        }
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -259,6 +270,9 @@ export default function RemoteDesktop() {
   const isConnected = rd.connState === CONN.CONNECTED;
   const isConnecting = rd.connState === CONN.CONNECTING;
 
+  /* ── Sidebar toggle for mobile ──────────────────────────────── */
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+
   /* ═══════════════════════════════════════════════════════════════
      Derived: build card list from discovery
      ═══════════════════════════════════════════════════════════════ */
@@ -294,7 +308,13 @@ export default function RemoteDesktop() {
       <div className="flex flex-1 min-h-0">
         {/* ── Left: Connection Manager  (hidden in fullscreen when connected) ── */}
         {(!isConnected || !isFullscreen) && (
-          <div className="w-75 shrink-0 flex flex-col border-r-2 border-gb-bg2 bg-gb-bg0 overflow-hidden">
+          <div
+            className={`
+              ${sidebarOpen ? 'w-75' : 'w-0'}
+              shrink-0 flex flex-col border-r-2 border-gb-bg2 bg-gb-bg0 overflow-hidden
+              transition-all duration-200
+            `}
+          >
             {/* Header */}
             <div className="flex items-center justify-between px-3 py-2.5 border-b-2 border-gb-bg2">
               <div className="flex items-center gap-2">
@@ -370,6 +390,16 @@ export default function RemoteDesktop() {
             className="absolute inset-0"
             style={{ background: '#1d2021' }}
           />
+
+          {/* Sidebar toggle button */}
+          {(!isConnected || !isFullscreen) && (
+            <button
+              onClick={toggleSidebar}
+              className="absolute top-2 left-2 z-20 p-2 bg-gb-bg1/80 border-2 border-gb-bg3 rounded-full backdrop-blur-sm"
+            >
+              {sidebarOpen ? <PanelLeft size={16} /> : <PanelRight size={16} />}
+            </button>
+          )}
 
           {/* Placeholder when disconnected */}
           {!isConnected && (

@@ -1,69 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Safe Command Execution Wrapper
  *
@@ -186,6 +120,7 @@ const COMMAND_REGISTRY = {
   // ─── Remote Desktop ──────────────────────────────────────────
   ssListening:    { bin: '/usr/bin/ss',               defaultArgs: ['-tlnp'], sudo: true },
   whichBin:       { bin: '/usr/bin/which',             defaultArgs: [],                         sudo: false },
+  x11vnc:         { bin: '/usr/bin/x11vnc',          defaultArgs: [],                         sudo: true },
 
   // ─── Power Management ─────────────────────────────────────────
   poweroff:       { bin: '/usr/bin/systemctl',         defaultArgs: ['poweroff'],               sudo: true },

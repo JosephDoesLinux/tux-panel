@@ -149,5 +149,5 @@ export default memo(function TerminalPane({ sessionId }) {
     };
   }, [sessionId, sendInput, sendResize, subscribe, getBuffer]);
 
-  return <div ref={containerRef} className="h-full w-full overflow-hidden glass-panel" />;
+  return <div ref={containerRef} className="h-full w-full overflow-hidden" />;
 });
