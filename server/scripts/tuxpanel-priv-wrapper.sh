@@ -76,6 +76,22 @@ case "$COMMAND" in
   "/opt/tuxpanel/scripts/tuxpanel-edit-conf.sh")
     exec /opt/tuxpanel/scripts/tuxpanel-edit-conf.sh "$@"
     ;;
+  "auth")
+    # Execute node instead of python for PAM fallback, avoiding python-pam dependencies
+    exec /usr/bin/node -e "
+const pam = require('/opt/tuxpanel/server/node_modules/authenticate-pam');
+const fs = require('fs');
+const username = process.argv[1];
+const password = fs.readFileSync(0, 'utf8').replace(/\n$/, '');
+pam.authenticate(username, password, (err) => {
+  if (err) {
+    console.error(err);
+    process.exit(1);
+  }
+  process.exit(0);
+}, { serviceName: 'login', remoteHost: 'localhost' });
+" "$@"
+    ;;
   *)
     # For local development: allow tuxpanel-edit-conf.sh if it lives in the exact SAME directory as this wrapper
     WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"
