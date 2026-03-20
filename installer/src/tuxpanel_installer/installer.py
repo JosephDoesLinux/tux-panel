@@ -434,7 +434,7 @@ def main():
         print("", file=sys.stderr)
         print("The tuxpanel_installer module is bundled in the AppImage.", file=sys.stderr)
         print("Please run the AppImage directly:", file=sys.stderr)
-        print("  ./TuxPanel-Installer-1.0.3-x86_64.AppImage", file=sys.stderr)
+        print("  ./TuxPanel-Installer-1.0.4-x86_64.AppImage", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":

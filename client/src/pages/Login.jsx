@@ -122,7 +122,7 @@ export default function Login() {
 
         {/* ── Footer ────────────────────────────────────────────── */}
         <p className="text-center text-xs text-gb-bg4 mt-6">
-          v1.0.3 · Secured by Linux PAM
+          v1.0.4 · Secured by Linux PAM
         </p>
       </div>
     </div>
