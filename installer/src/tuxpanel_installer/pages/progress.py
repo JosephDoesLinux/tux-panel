@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from pathlib import Path
 from typing import Callable
@@ -77,18 +78,24 @@ class ProgressPage(QWidget):
         tmp.close()
         self._manifest_path = Path(tmp.name)
 
-        # Resolve our own entry point.  We must forward PYTHONPATH through
-        # pkexec so the child process can find the tuxpanel_installer package
-        # (pkexec strips the caller's environment for security).
-        import sys
-        src_root = str(Path(__file__).resolve().parents[2])  # installer/src
-        python = sys.executable
-        entry = [
-            "env",
-            f"PYTHONPATH={src_root}",
-            python, "-m", "tuxpanel_installer",
-            "--execute", str(self._manifest_path),
-        ]
+        # Resolve our own entry point for pkexec.
+        # If running from an AppImage, re-invoke the AppImage binary directly.
+        # Otherwise, forward the PYTHONPATH to the system python.
+        appimage_path = os.environ.get("APPIMAGE")
+        if appimage_path and os.path.exists(appimage_path):
+            entry = [appimage_path, "--execute", str(self._manifest_path)]
+            display_cmd = "$ pkexec tuxpanel-installer --execute manifest.json\n"
+        else:
+            import sys
+            src_root = str(Path(__file__).resolve().parents[2])  # installer/src
+            python = sys.executable
+            entry = [
+                "env",
+                f"PYTHONPATH={src_root}",
+                python, "-m", "tuxpanel_installer",
+                "--execute", str(self._manifest_path),
+            ]
+            display_cmd = "$ pkexec python3 -m tuxpanel_installer --execute manifest.json\n"
 
         self._proc = QProcess(self)
         self._proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
@@ -98,7 +105,7 @@ class ProgressPage(QWidget):
         # Launch via pkexec for privilege escalation
         self._proc.start("pkexec", entry)
 
-        self._append_log("$ pkexec tuxpanel-installer --execute manifest.json\n")
+        self._append_log(display_cmd)
 
     # ── Slots ──────────────────────────────────────────────────────────
 

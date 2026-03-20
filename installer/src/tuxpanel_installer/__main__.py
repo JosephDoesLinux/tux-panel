@@ -55,15 +55,19 @@ def main(argv: list[str] | None = None) -> None:
         from .installer import uninstall_all
 
         if os.geteuid() != 0:
-            src_root = str(Path(__file__).resolve().parents[1])  # installer/src
-            entry = [
-                "env",
-                f"PYTHONPATH={src_root}",
-                sys.executable,
-                "-m",
-                "tuxpanel_installer",
-                "--uninstall",
-            ]
+            appimage_path = os.environ.get("APPIMAGE")
+            if appimage_path and os.path.exists(appimage_path):
+                entry = [appimage_path, "--uninstall"]
+            else:
+                src_root = str(Path(__file__).resolve().parents[1])  # installer/src
+                entry = [
+                    "env",
+                    f"PYTHONPATH={src_root}",
+                    sys.executable,
+                    "-m",
+                    "tuxpanel_installer",
+                    "--uninstall",
+                ]
             rc = subprocess.call(["pkexec", *entry])
             sys.exit(rc)
 

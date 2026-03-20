@@ -45,8 +45,15 @@ mkdir -p "${APPDIR}/usr/lib/python3/dist-packages" \
 cp -r src/tuxpanel_installer "${APPDIR}/usr/lib/python3/dist-packages/"
 
 # Install Python deps into AppDir (PyQt6, dbus-python)
-pip install --target="${APPDIR}/usr/lib/python3/dist-packages" \
-    PyQt6 dbus-python 2>/dev/null || true
+echo "==> Installing Python dependencies into AppDir..."
+pip install --upgrade --target="${APPDIR}/usr/lib/python3/dist-packages" \
+    PyQt6 dbus-python
+
+# Verify the package directory was copied
+if [[ ! -d "${APPDIR}/usr/lib/python3/dist-packages/tuxpanel_installer" ]]; then
+    echo "Error: tuxpanel_installer not found in AppDir. Aborting." >&2
+    exit 1
+fi
 
 # Entry point wrapper
 cat > "${APPDIR}/usr/bin/tuxpanel-installer" << 'WRAPPER'
