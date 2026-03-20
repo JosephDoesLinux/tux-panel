@@ -515,7 +515,7 @@ export default function Layout() {
         {/* ── Main Content ─────────────────────────────────────── */}
         <main className="flex-1 overflow-auto p-3 sm:p-6 relative">
           <Outlet />
-          <AIChatbot />
+          {hostInfo?.aiEnabled && <AIChatbot />}
         </main>
 
         {/* ── Notification Sidebar ─────────────────────────────── */}

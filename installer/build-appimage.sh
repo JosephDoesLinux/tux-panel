@@ -78,6 +78,32 @@ cp src/tuxpanel_installer/resources/icons/tuxpanel.svg "${APPDIR}/org.tuxpanel.i
 cp appimage/AppRun "${APPDIR}/"
 chmod +x "${APPDIR}/AppRun"
 
+# ── Pre-build & Bundle Repo Assets ─────────────────────────────────────────
+echo "==> Pre-building client and server for bundled execution..."
+pushd ../server
+npm ci
+npm run build
+npm prune --omit=dev
+popd
+
+pushd ../client
+npm ci
+npm run build
+popd
+
+echo "==> Bundling repo assets for standalone execution..."
+rsync -a ../server "${APPDIR}/usr/lib/"
+rsync -a ../client "${APPDIR}/usr/lib/"
+# Remove any git directories that snuck in
+find "${APPDIR}/usr/lib/server" "${APPDIR}/usr/lib/client" -name ".git" -type d -exec rm -rf {} +
+
+# Bundle installer assets (icons, rules, manifests) exactly where installer expects them
+mkdir -p "${APPDIR}/usr/lib/installer/appimage"
+mkdir -p "${APPDIR}/usr/lib/installer/src/tuxpanel_installer/resources/icons"
+cp appimage/org.tuxpanel.desktop "${APPDIR}/usr/lib/installer/appimage/"
+cp appimage/tuxpanel-tray.desktop "${APPDIR}/usr/lib/installer/appimage/"
+cp src/tuxpanel_installer/resources/icons/tuxpanel.svg "${APPDIR}/usr/lib/installer/src/tuxpanel_installer/resources/icons/"
+
 # ── Package ────────────────────────────────────────────────────────────────
 echo "==> Packaging AppImage..."
 mkdir -p dist

@@ -73,6 +73,19 @@ class ConfigPage(QWidget):
         self._firewall.setChecked(True)
         form.addRow("", self._firewall)
 
+        # ── AI Integration ─────────────────────────────────────────────
+        self._enable_ai = QCheckBox("Enable AI Chatbot Features")
+        self._enable_ai.setChecked(False)
+        self._enable_ai.stateChanged.connect(self._toggle_ai_input)
+
+        self._ai_api_key = QLineEdit()
+        self._ai_api_key.setPlaceholderText("Gemini API Key")
+        self._ai_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self._ai_api_key.setEnabled(False)
+
+        form.addRow("", self._enable_ai)
+        form.addRow("AI API Key:", self._ai_api_key)
+
         root.addStretch()
 
         note = QLabel(
@@ -94,3 +107,11 @@ class ConfigPage(QWidget):
         manifest.admin_user = self._admin.text().strip()
         manifest.enable_on_boot = self._autostart.isChecked()
         manifest.open_firewall = self._firewall.isChecked()
+        if self._enable_ai.isChecked():
+            manifest.ai_api_key = self._ai_api_key.text().strip()
+
+    def _toggle_ai_input(self, state: int) -> None:
+        checked = state == Qt.CheckState.Checked.value
+        self._ai_api_key.setEnabled(checked)
+        if checked:
+            self._ai_api_key.setFocus()

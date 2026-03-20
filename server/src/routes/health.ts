@@ -29,6 +29,7 @@ router.get('/', (_req: Request, res: Response) => {
     platform: `${os.type()} ${os.release()}`,
     kernel: os.release(),
     nodeVersion: process.version,
+    aiEnabled: !!process.env.GEMINI_API_KEY,
   });
 });
 

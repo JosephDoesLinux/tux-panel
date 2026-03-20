@@ -57,6 +57,7 @@ class InstallManifest:
     open_firewall: bool = True
     tls_mode: str = "self-signed"  # "self-signed" | "none"
     admin_user: str = ""
+    ai_api_key: str = ""
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=2)
@@ -262,19 +263,27 @@ def _deploy_app() -> None:
 
 
 def _npm_install() -> None:
+    if (C.SERVER_DIR / "node_modules").is_dir():
+        return  # Already bundled/built
     run_streaming(["npm", "ci"], cwd=str(C.SERVER_DIR))
 
 
 def _build_client() -> None:
+    if (C.CLIENT_DIR / "dist").is_dir():
+        return  # Already bundled/built
     run_streaming(["npm", "ci"], cwd=str(C.CLIENT_DIR))
     run_streaming(["npm", "run", "build"], cwd=str(C.CLIENT_DIR))
 
 
 def _build_server() -> None:
+    if (C.SERVER_DIR / "dist").is_dir():
+        return  # Already bundled/built
     run_streaming(["npm", "run", "build"], cwd=str(C.SERVER_DIR))
 
 
 def _npm_prune_production() -> None:
+    if (C.SERVER_DIR / "dist").is_dir() and (C.CLIENT_DIR / "dist").is_dir():
+        return  # Already bundled/built and pruned at AppImage build time
     run_streaming(["npm", "prune", "--omit=dev"], cwd=str(C.SERVER_DIR))
     run_streaming(["npm", "prune", "--omit=dev"], cwd=str(C.CLIENT_DIR))
 
@@ -459,8 +468,8 @@ TUXPANEL_TLS_MODE={manifest.tls_mode}
 TUXPANEL_TLS_CERT=/etc/tuxpanel/ssl/tuxpanel.crt
 TUXPANEL_TLS_KEY=/etc/tuxpanel/ssl/tuxpanel.key
 
-# Optional: Gemini API key for AI chatbot (leave blank to disable)
-# GEMINI_API_KEY=
+# Optional: Gemini API key for AI chatbot
+{f"GEMINI_API_KEY={manifest.ai_api_key}" if manifest.ai_api_key else "# GEMINI_API_KEY="}
 """
     
     env_file.write_text(production_env)
