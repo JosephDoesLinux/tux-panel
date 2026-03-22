@@ -89,6 +89,40 @@ npm run dev
 
 ---
 
+## Screenshots
+
+<details>
+<summary><b>🖼️ Click to view gallery</b></summary>
+<br>
+
+### 📊 System Dashboard
+> Real-time system health metrics, CPU, RAM, and Network activity gauges.
+<img src="assets/screenshots/dashboard.png" alt="TuxPanel Dashboard" width="800"/>
+
+### 🖥️ Native Remote Desktop (noVNC)
+> Seamless in-browser VNC/RDP sessions natively spawned by the dashboard via systemd.
+<img src="assets/screenshots/remote-desktop.png" alt="Remote Desktop Session" width="800"/>
+
+### ⚙️ Interactive Web Terminal
+> Full-featured interactive bash terminal inside the browser utilizing xterm.js.
+<img src="assets/screenshots/terminal.png" alt="Web Terminal" width="800"/>
+
+### 🛠️ Services Manager
+> View, start, stop, and inspect systemd daemons and applications on the host system.
+<img src="assets/screenshots/services.png" alt="Services Manager" width="800"/>
+
+### 🐳 Docker Containers
+> Full container orchestration, image details, and lifecycle state management.
+<img src="assets/screenshots/containers.png" alt="Container Management" width="800"/>
+
+### 🤖 AI Troubleshooting Assistant
+> Integrated AI context-aware chatbot for querying configuration files and diagnosing system issues.
+<img src="assets/screenshots/ai-chatbot.png" alt="AI Chatbot Application" width="800"/>
+
+</details>
+
+---
+
 ## Architecture & Security
 
 TuxPanel emphasizes security by completely avoiding arbitrary shell commands (`sudo` / `exec`).
