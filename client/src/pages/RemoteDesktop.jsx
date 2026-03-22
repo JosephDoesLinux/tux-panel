@@ -383,11 +383,11 @@ export default function RemoteDesktop() {
         )}
 
         {/* ── Right: Remote Viewport ─────────────────────────────── */}
-        <div className="flex-1 min-w-0 relative overflow-hidden">
+        <div className="flex-1 min-w-0 relative overflow-auto">
           {/* noVNC canvas — always in DOM */}
           <div
             ref={displayRef}
-            className="absolute inset-0"
+            className="absolute inset-0 overflow-auto"
             style={{ background: '#1d2021' }}
           />
 
