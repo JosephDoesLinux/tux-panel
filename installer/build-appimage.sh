@@ -6,17 +6,14 @@
 #
 # Requirements (fetched automatically if missing):
 #   - appimagetool  (https://github.com/AppImage/appimagetool)
-#   - python3, pip
 
 set -euo pipefail
 
 ARCH="${1:-x86_64}"
 APP_NAME="TuxPanel-Installer"
-APP_VERSION=$(python3 -c "
-import tomllib, pathlib
-p = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
-print(p['project']['version'])
-")
+# Can't use python directly if assuming minimal system, hardcode or grab via basic grep
+APP_VERSION=$(grep -E 'version\s*=\s*"' pyproject.toml | head -n1 | cut -d'"' -f2 || echo "1.0.4")
+
 APPDIR="build/${APP_NAME}.AppDir"
 OUTPUT="dist/${APP_NAME}-${APP_VERSION}-${ARCH}.AppImage"
 
@@ -35,48 +32,35 @@ fi
 # ── Build AppDir ───────────────────────────────────────────────────────────
 echo "==> Constructing AppDir..."
 rm -rf "$APPDIR"
-mkdir -p "${APPDIR}/usr/lib/python3/dist-packages" \
-         "${APPDIR}/usr/bin" \
+mkdir -p "${APPDIR}/usr/bin" \
          "${APPDIR}/usr/share/applications" \
          "${APPDIR}/usr/share/icons/hicolor/scalable/apps" \
-         "${APPDIR}/usr/share/metainfo"
+         "${APPDIR}/usr/share/metainfo" \
+         "${APPDIR}/opt/python" \
+         "${APPDIR}/usr/lib/python3/dist-packages"
 
+# ── Fetch Standalone Python Runtime ────────────────────────────────────────
+# Using python-build-standalone (manylinux compatible)
+PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20240107/cpython-3.10.13+20240107-x86_64-unknown-linux-gnu-install_only.tar.gz"
+echo "==> Fetching standalone Python runtime (this may take a minute)..."
+if [[ ! -f "build/python-standalone.tar.gz" ]]; then
+    curl -L -o build/python-standalone.tar.gz "$PYTHON_URL"
+fi
+echo "==> Extracting Python runtime into AppDir..."
+tar -xzf build/python-standalone.tar.gz -C "${APPDIR}/opt/python"
+# The archive has a 'python' folder inside. Move contents up
+mv "${APPDIR}/opt/python/python/"* "${APPDIR}/opt/python/"
+rmdir "${APPDIR}/opt/python/python"
+
+# ── Install Python Dependencies ────────────────────────────────────────────
 # Copy application source
 cp -r src/tuxpanel_installer "${APPDIR}/usr/lib/python3/dist-packages/"
 
-# Install Python deps into AppDir (PyQt6, dbus-python)
 echo "==> Installing Python dependencies into AppDir..."
-pip install --upgrade --target="${APPDIR}/usr/lib/python3/dist-packages" \
-    PyQt6 dbus-python
-
-# Verify the package directory was copied
-if [[ ! -d "${APPDIR}/usr/lib/python3/dist-packages/tuxpanel_installer" ]]; then
-    echo "Error: tuxpanel_installer not found in AppDir. Aborting." >&2
-    exit 1
-fi
-
-# Entry point wrapper
-cat > "${APPDIR}/usr/bin/tuxpanel-installer" << 'WRAPPER'
-#!/usr/bin/env python3
-import sys, os
-here = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(here, '..', 'lib', 'python3', 'dist-packages'))
-from tuxpanel_installer.__main__ import main
-main()
-WRAPPER
-chmod +x "${APPDIR}/usr/bin/tuxpanel-installer"
-
-# Desktop + icon + appstream
-cp appimage/org.tuxpanel.installer.desktop "${APPDIR}/usr/share/applications/"
-cp appimage/org.tuxpanel.installer.desktop "${APPDIR}/"
-cp appimage/org.tuxpanel.installer.appdata.xml "${APPDIR}/usr/share/metainfo/"
-cp src/tuxpanel_installer/resources/icons/tuxpanel.svg \
-    "${APPDIR}/usr/share/icons/hicolor/scalable/apps/org.tuxpanel.installer.svg"
-cp src/tuxpanel_installer/resources/icons/tuxpanel.svg "${APPDIR}/org.tuxpanel.installer.svg"
-
-# AppRun
-cp appimage/AppRun "${APPDIR}/"
-chmod +x "${APPDIR}/AppRun"
+# Use the newly bundled Python to install the dependencies!
+export PATH="${APPDIR}/opt/python/bin:$PATH"
+python3 -m pip install --upgrade pip
+python3 -m pip install PyQt6 dbus-python 
 
 # ── Pre-build & Bundle Repo Assets ─────────────────────────────────────────
 echo "==> Pre-building client and server for bundled execution..."
@@ -103,6 +87,32 @@ mkdir -p "${APPDIR}/usr/lib/installer/src/tuxpanel_installer/resources/icons"
 cp appimage/org.tuxpanel.desktop "${APPDIR}/usr/lib/installer/appimage/"
 cp appimage/tuxpanel-tray.desktop "${APPDIR}/usr/lib/installer/appimage/"
 cp src/tuxpanel_installer/resources/icons/tuxpanel.svg "${APPDIR}/usr/lib/installer/src/tuxpanel_installer/resources/icons/"
+
+# Entry point wrapper (Symlink or execution script)
+cat > "${APPDIR}/usr/bin/tuxpanel-installer" << 'WRAPPER'
+#!/bin/bash
+HERE="$(dirname "$(readlink -f "${0}")")"
+export PATH="${HERE}/../../opt/python/bin:$PATH"
+export PYTHONPATH="${HERE}/../lib/python3/dist-packages:${HERE}/../../opt/python/lib/python3.10/site-packages"
+
+# We must set LD_LIBRARY_PATH if the Qt C-extensions need it, but normally wheels include them
+# or if they rely on system libs. The python-standalone is fully self contained.
+exec python3 -m tuxpanel_installer "$@"
+WRAPPER
+chmod +x "${APPDIR}/usr/bin/tuxpanel-installer"
+
+# Desktop + icon + appstream
+cp appimage/org.tuxpanel.installer.desktop "${APPDIR}/usr/share/applications/"
+cp appimage/org.tuxpanel.installer.desktop "${APPDIR}/"
+cp appimage/org.tuxpanel.installer.appdata.xml "${APPDIR}/usr/share/metainfo/"
+cp src/tuxpanel_installer/resources/icons/tuxpanel.svg \
+    "${APPDIR}/usr/share/icons/hicolor/scalable/apps/org.tuxpanel.installer.svg"
+cp src/tuxpanel_installer/resources/icons/tuxpanel.svg "${APPDIR}/org.tuxpanel.installer.svg"
+
+# AppRun
+cp appimage/AppRun "${APPDIR}/"
+chmod +x "${APPDIR}/AppRun"
+
 
 # ── Package ────────────────────────────────────────────────────────────────
 echo "==> Packaging AppImage..."
