@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageSquare, X, Send, Bot, User, Copy, TerminalSquare, Check } from 'lucide-react';
+import { MessageSquare, X, Send, Bot, User, Copy, TerminalSquare, Check, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useTerminal } from '../contexts/TerminalContext';
+import AISettingsModal from './AISettingsModal';
+import { useAIPrefs } from '../hooks/useAIPrefs';
 
 /* ── Markdown-lite renderer (handles code blocks + inline formatting) ─── */
 
@@ -202,6 +204,8 @@ const MAX_H = 900;
 
 export default function AIChatbot() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { prefs } = useAIPrefs();
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Hello! I am your TuxPanel AI assistant. How can I help you manage your server today?', animated: false }
   ]);
@@ -306,8 +310,11 @@ export default function AIChatbot() {
     setIsTyping(true);
 
     try {
-      // Send the entire conversation history to the backend
-      const res = await api.post('/api/ai/chat', { messages: newMessages });
+      // Send the entire conversation history and AI preferences to the backend
+      const res = await api.post('/api/ai/chat', { 
+        messages: newMessages,
+        prefs: prefs
+      });
       setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply, animated: true }]);
     } catch (err) {
       console.error('AI Chat Error:', err);
@@ -369,12 +376,21 @@ export default function AIChatbot() {
             <Bot size={20} />
             <span>TuxPanel AI</span>
           </div>
-          <button 
-            onClick={() => setIsOpen(false)}
-            className="text-gb-fg4 hover:text-gb-red transition-colors"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="text-gb-fg4 hover:text-gb-yellow transition-colors"
+              title="AI Settings"
+            >
+              <Settings size={18} />
+            </button>
+            <button 
+              onClick={() => setIsOpen(false)}
+              className="text-gb-fg4 hover:text-gb-red transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Messages Area */}
@@ -440,6 +456,12 @@ export default function AIChatbot() {
           </button>
         </form>
       </div>
+
+      {/* AI Settings Modal */}
+      <AISettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+      />
     </>
   );
 }

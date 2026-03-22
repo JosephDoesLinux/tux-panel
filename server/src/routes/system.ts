@@ -15,8 +15,7 @@ const router = Router();
 // Returns a combined snapshot of hostname, uptime, load, cpu, memory, disk.
 router.get('/overview', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const [hostnameRes, uptimeRes, loadavgRes, dfRes, lsblkRes] = await Promise.all([
-      run('hostname'),
+    const [uptimeRes, loadavgRes, dfRes, lsblkRes] = await Promise.all([
       run('uptime'),
       run('loadavg'),
       run('df'),
@@ -30,7 +29,7 @@ router.get('/overview', async (_req: Request, res: Response, next: NextFunction)
     const loadParts = loadavgRes.stdout.split(' ');
 
     res.json({
-      hostname: hostnameRes.stdout,
+      hostname: os.hostname(),
       uptime: uptimeRes.stdout,
       load: {
         '1m': parseFloat(loadParts[0]),

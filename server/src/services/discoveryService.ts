@@ -7,7 +7,8 @@
  */
 
 import { execFile } from 'child_process';
-import { readdir, readFile } from 'fs/promises';
+import { readdir, readFile, access } from 'fs/promises';
+import { constants } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { run } from '../utils/commandRunner';
@@ -360,12 +361,18 @@ async function discoverUsers(): Promise<SystemUser[]> {
    ══════════════════════════════════════════════════════════════════════ */
 
 async function whichExists(bin: string): Promise<boolean> {
-  try {
-    const { stdout } = await run('whichBin', [bin]);
-    return stdout.trim().length > 0;
-  } catch {
-    return false;
+  const envPath = process.env.PATH || '';
+  const dirs = envPath.split(path.delimiter);
+  for (const dir of dirs) {
+    const fullPath = path.join(dir, bin);
+    try {
+      await access(fullPath, constants.X_OK);
+      return true;
+    } catch {
+      // ignore
+    }
   }
+  return false;
 }
 
 /**

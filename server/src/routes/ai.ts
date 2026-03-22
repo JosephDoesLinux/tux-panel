@@ -67,23 +67,21 @@ Assume a modern Linux distribution unless the system info says otherwise.`;
 // ── POST /api/ai/chat ────────────────────────────────────────────────
 router.post('/chat', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (!genAI) {
-      return res.status(503).json({ error: 'AI is not configured on this server. Please add GEMINI_API_KEY to your .env file.' });
-    }
-
-    const { messages } = req.body;
+    const { messages, prefs } = req.body;
+    
     if (!Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'Messages array is required.' });
     }
 
-    // Convert messages to Gemini format
-    // Gemini requires the first message in history to be from the 'user'
-    // If the first message is from the assistant (e.g. our greeting), we skip it
+    const isCustomProxy = prefs?.useCustomProxy === true;
+    if (!isCustomProxy && !genAI) {
+      return res.status(503).json({ error: 'Google Gemini AI is not configured on this server. Please add GEMINI_API_KEY to your .env file or use a Custom API Proxy.' });
+    }
+
+    // Convert messages for context filtering
     const filtered = messages
       .filter((msg: any, index: number) => !(index === 0 && msg.role === 'assistant'));
 
-    // On the first user message, prepend a system snapshot so the AI
-    // knows about the server it's helping with
     const isFirstExchange = filtered.length === 1 && filtered[0].role === 'user';
     if (isFirstExchange) {
       try {
@@ -97,26 +95,78 @@ router.post('/chat', async (req: Request, res: Response, next: NextFunction) => 
       }
     }
 
+    const finalSystemPrompt = prefs?.systemPrompt?.trim() || SYSTEM_INSTRUCTION;
+    const temperature = parseFloat(prefs?.temperature ?? 0.7);
+    const topP = parseFloat(prefs?.topP ?? 0.95);
+
+    // ── Handle Custom Proxy (OpenAI Format) ──
+    if (isCustomProxy) {
+      const { proxyUrl, proxyModel, proxyApiKey } = prefs || {};
+      if (!proxyUrl || !proxyModel) {
+        return res.status(400).json({ error: 'Base URL and Model Name are required for custom proxy.' });
+      }
+
+      const proxyMessages = [
+        { role: 'system', content: finalSystemPrompt },
+        ...filtered.map((msg: any) => ({ role: msg.role, content: msg.content }))
+      ];
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (proxyApiKey) {
+        headers['Authorization'] = `Bearer ${proxyApiKey}`;
+      }
+
+      let endpoint = proxyUrl.trim();
+      if (!endpoint.endsWith('/chat/completions')) {
+        endpoint = endpoint.replace(/\/+$/, '') + '/chat/completions';
+      }
+
+      const proxyRes = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: proxyModel,
+          messages: proxyMessages,
+          temperature,
+          top_p: topP
+        })
+      });
+
+      if (!proxyRes.ok) {
+        const errText = await proxyRes.text();
+        throw new Error(`Proxy error: ${proxyRes.status} - ${errText}`);
+      }
+      
+      const data = await proxyRes.json();
+      const reply = data.choices?.[0]?.message?.content || 'No response from proxy.';
+      return res.json({ reply });
+    }
+
+    // ── Handle Default Google Gemini ──
     const history = filtered.map((msg: any) => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }],
-      }));
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }],
+    }));
 
-    // Extract the latest message to send
     const latestMessage = history.pop();
-
     if (!latestMessage) {
       return res.status(400).json({ error: 'No message to send.' });
     }
 
-    // Use the recommended model for general text tasks
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash',
-      systemInstruction: SYSTEM_INSTRUCTION 
+    const modelChoice = prefs?.model || 'gemini-2.5-flash';
+    const model = genAI!.getGenerativeModel({ 
+      model: modelChoice,
+      systemInstruction: finalSystemPrompt 
     });
 
     const chat = model.startChat({
       history: history,
+      generationConfig: {
+        temperature,
+        topP
+      }
     });
 
     const result = await chat.sendMessage(latestMessage.parts[0].text);
@@ -125,6 +175,12 @@ router.post('/chat', async (req: Request, res: Response, next: NextFunction) => 
     res.json({ reply: responseText });
   } catch (err: any) {
     logger.error(`AI Chat Error: ${err.message}`);
+    
+    // Add specific proxy fallback info if needed
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+       next(new Error('Failed to connect to proxy URL. Check if the URL is valid and the server is running.'));
+       return;
+    }
     next(err);
   }
 });

@@ -116,7 +116,10 @@ def _launch_gui(*, force_install: bool = False, force_manage: bool = False) -> N
     # Set some sensible environment defaults for Wayland if not set
     if sys.platform.startswith("linux"):
         if "QT_QPA_PLATFORM" not in os.environ:
-            os.environ["QT_QPA_PLATFORM"] = "wayland;xcb"
+            if os.environ.get("WAYLAND_DISPLAY") or os.environ.get("XDG_SESSION_TYPE") == "wayland":
+                os.environ["QT_QPA_PLATFORM"] = "wayland;xcb"
+            else:
+                os.environ["QT_QPA_PLATFORM"] = "xcb"
         if "QT_QPA_PLATFORMTHEME" not in os.environ:
             # Let standard gtk3 bridging attempt to pull the native UI
             os.environ["QT_QPA_PLATFORMTHEME"] = "gtk3"
@@ -164,7 +167,10 @@ def _launch_tray() -> None:
     # Set some sensible environment defaults for Wayland if not set
     if sys.platform.startswith("linux"):
         if "QT_QPA_PLATFORM" not in os.environ:
-            os.environ["QT_QPA_PLATFORM"] = "wayland;xcb"
+            if os.environ.get("WAYLAND_DISPLAY") or os.environ.get("XDG_SESSION_TYPE") == "wayland":
+                os.environ["QT_QPA_PLATFORM"] = "wayland;xcb"
+            else:
+                os.environ["QT_QPA_PLATFORM"] = "xcb"
         if "QT_QPA_PLATFORMTHEME" not in os.environ:
             # Let standard gtk3 bridging attempt to pull the native UI
             os.environ["QT_QPA_PLATFORMTHEME"] = "gtk3"

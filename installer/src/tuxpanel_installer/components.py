@@ -155,7 +155,7 @@ COMPONENTS: list[Component] = [
         packages={
             "dnf": ["nodejs"],
             "apt": ["nodejs"],
-            "pacman": ["nodejs-lts-jod"],
+            "pacman": ["nodejs-lts-jod", "npm"],
             "zypper": ["nodejs22"],
         },
     ),

@@ -464,7 +464,7 @@ export default function Layout() {
               <span className="text-3xl">🐧</span>
               <h2 className="text-lg font-black text-gb-fg0 uppercase">TuxPanel</h2>
             </div>
-            <p className="text-sm text-gb-fg2 mb-1">Version 1.0.4</p>
+            <p className="text-sm text-gb-fg2 mb-1">Version 1.1.0</p>
             <p className="text-sm text-gb-fg2 mb-4">
               A modern Linux server management panel with a neobrutalist Gruvbox aesthetic.
             </p>
@@ -508,7 +508,7 @@ export default function Layout() {
         >
           <SidebarNav onNavigate={() => { if (isMobile) setSidebarOpen(false); }} />
           <div className="px-4 py-3 border-t-2 border-gb-bg2 text-xs text-gb-bg4 font-mono whitespace-nowrap">
-            v1.0.4{hostInfo ? ` · ${hostInfo.hostname}` : ''}
+            v1.1.0{hostInfo ? ` · ${hostInfo.hostname}` : ''}
           </div>
         </aside>
 

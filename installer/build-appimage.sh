@@ -12,7 +12,7 @@ set -euo pipefail
 ARCH="${1:-x86_64}"
 APP_NAME="TuxPanel-Installer"
 # Can't use python directly if assuming minimal system, hardcode or grab via basic grep
-APP_VERSION=$(grep -E 'version\s*=\s*"' pyproject.toml | head -n1 | cut -d'"' -f2 || echo "1.0.4")
+APP_VERSION=$(grep -E 'version\s*=\s*"' pyproject.toml | head -n1 | cut -d'"' -f2 || echo "1.1.0")
 
 APPDIR="build/${APP_NAME}.AppDir"
 OUTPUT="dist/${APP_NAME}-${APP_VERSION}-${ARCH}.AppImage"
@@ -88,12 +88,22 @@ cp appimage/org.tuxpanel.desktop "${APPDIR}/usr/lib/installer/appimage/"
 cp appimage/tuxpanel-tray.desktop "${APPDIR}/usr/lib/installer/appimage/"
 cp src/tuxpanel_installer/resources/icons/tuxpanel.svg "${APPDIR}/usr/lib/installer/src/tuxpanel_installer/resources/icons/"
 
+echo "==> Bundling Qt6 XCB platform dependencies..."
+# Bundle necessary XCB libraries if present on the build system
+for lib in libxcb-cursor.so.0 libxcb-render-util.so.0 libxcb-image.so.0 libxcb-util.so.1 libxcb-icccm.so.4 libxcb-keysyms.so.1 libxcb-randr.so.0 libxcb-render.so.0 libxcb-shape.so.0 libxcb-shm.so.0 libxcb-sync.so.1 libxcb-xfixes.so.0 libxcb-xkb.so.1 libxkbcommon-x11.so.0 libxkbcommon.so.0; do
+    real_lib=$(ldconfig -p | grep -m 1 "${lib}" | awk '{print $NF}' || true)
+    if [[ -n "$real_lib" && -f "$real_lib" ]]; then
+        cp -L "$real_lib" "${APPDIR}/usr/lib/${lib}"
+    fi
+done
+
 # Entry point wrapper (Symlink or execution script)
 cat > "${APPDIR}/usr/bin/tuxpanel-installer" << 'WRAPPER'
 #!/bin/bash
 HERE="$(dirname "$(readlink -f "${0}")")"
 export PATH="${HERE}/../../opt/python/bin:$PATH"
 export PYTHONPATH="${HERE}/../lib/python3/dist-packages:${HERE}/../../opt/python/lib/python3.10/site-packages"
+export LD_LIBRARY_PATH="${HERE}/../lib:${LD_LIBRARY_PATH:-}"
 
 # We must set LD_LIBRARY_PATH if the Qt C-extensions need it, but normally wheels include them
 # or if they rely on system libs. The python-standalone is fully self contained.
