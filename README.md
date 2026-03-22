@@ -1,6 +1,6 @@
 # 🐧 TuxPanel
 
-> A modern, Node-based orchestration dashboard for Linux — managing NAS functions, remote access, and system health from a single pane of glass.
+![Banner](assets/banner.png)
 
 **Built for modern Linux** with a reactive JS stack that replaces legacy PHP panels. Features a seamless Python-based graphical installer packaged as an AppImage for cross-distro compatibility.
 
