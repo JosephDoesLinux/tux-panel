@@ -96,11 +96,11 @@ const COMMAND_REGISTRY = {
   dockerInspect:  { bin: '/usr/bin/docker',          defaultArgs: ['inspect'], sudo: true },
 
   // ─── Firewall ─────────────────────────────────────────────────
-  firewalldState:      { bin: '/usr/bin/firewall-cmd', defaultArgs: ['--state'],              sudo: false },
-  firewalldZones:      { bin: '/usr/bin/firewall-cmd', defaultArgs: ['--get-zones'],          sudo: false },
-  firewalldActiveZones:{ bin: '/usr/bin/firewall-cmd', defaultArgs: ['--get-active-zones'],   sudo: false },
-  firewalldDefaultZone:{ bin: '/usr/bin/firewall-cmd', defaultArgs: ['--get-default-zone'],   sudo: false },
-  firewalldListAll:    { bin: '/usr/bin/firewall-cmd', defaultArgs: ['--list-all'],           sudo: false },
+  firewalldState:      { bin: '/usr/bin/firewall-cmd', defaultArgs: ['--state'],              sudo: true },
+  firewalldZones:      { bin: '/usr/bin/firewall-cmd', defaultArgs: ['--get-zones'],          sudo: true },
+  firewalldActiveZones:{ bin: '/usr/bin/firewall-cmd', defaultArgs: ['--get-active-zones'],   sudo: true },
+  firewalldDefaultZone:{ bin: '/usr/bin/firewall-cmd', defaultArgs: ['--get-default-zone'],   sudo: true },
+  firewalldListAll:    { bin: '/usr/bin/firewall-cmd', defaultArgs: ['--list-all'],           sudo: true },
 
   // ─── Diagnostics / Troubleshooting ─────────────────────────────
   lscpu:          { bin: '/usr/bin/lscpu',              defaultArgs: [],                         sudo: false },

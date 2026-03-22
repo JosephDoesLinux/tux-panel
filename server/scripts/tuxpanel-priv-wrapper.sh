@@ -10,7 +10,7 @@ case "$COMMAND" in
   "/usr/bin/systemctl")
     ACTION=$1
     shift
-    if [[ ! "$ACTION" =~ ^(start|stop|restart|reload|status|is-active|enable|disable|poweroff|reboot|list-units|list-unit-files)$ ]]; then
+    if [[ ! "$ACTION" =~ ^(start|stop|restart|reload|daemon-reload|status|is-active|enable|disable|poweroff|reboot|list-units|list-unit-files)$ ]]; then
       echo "Denied systemctl action: $ACTION" >&2
       exit 1
     fi
@@ -58,9 +58,6 @@ case "$COMMAND" in
   "/usr/sbin/sshd")
     exec /usr/sbin/sshd "$@"
     ;;
-  "/usr/bin/su")
-    exec /usr/bin/su "$@"
-    ;;
   "/usr/bin/docker")
     exec /usr/bin/docker "$@"
     ;;
@@ -75,6 +72,9 @@ case "$COMMAND" in
     ;;
   "/usr/bin/x11vnc")
     exec /usr/bin/x11vnc "$@"
+    ;;
+  "/usr/bin/firewall-cmd")
+    exec /usr/bin/firewall-cmd "$@"
     ;;
   "/opt/tuxpanel/scripts/tuxpanel-edit-conf.sh")
     exec /opt/tuxpanel/scripts/tuxpanel-edit-conf.sh "$@"
