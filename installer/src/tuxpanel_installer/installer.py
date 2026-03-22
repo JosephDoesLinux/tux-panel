@@ -121,10 +121,15 @@ def _plan_steps(
     """Build an ordered list of install steps from the manifest."""
     steps: list[StepFn] = []
 
-    # 1. Verify Node.js
-    steps.append(("node-check", "Checking Node.js version...", _check_nodejs))
+    # Inject NodeSource setup if Node.js is selected
+    if "nodejs" in manifest.component_ids:
+        steps.append((
+            "setup-nodesource",
+            "Configuring NodeSource repository...",
+            lambda _pm=pm: _setup_nodesource(_pm),
+        ))
 
-    # 2. Install system packages for selected components
+    # 1. Install system packages for selected components
     all_pkgs: list[str] = []
     for comp in components:
         all_pkgs.extend(comp.packages_for(pm.value))
@@ -135,14 +140,17 @@ def _plan_steps(
             lambda pkgs=all_pkgs, _pm=pm: install_packages(_pm, pkgs),
         ))
 
+    # 2. Verify Node.js
+    steps.append(("node-check", "Checking Node.js version...", _check_nodejs))
+
     # 3. Create service user
     steps.append(("service-user", "Creating tuxpanel system user...", ensure_service_user))
 
     # 4. Deploy application files
     steps.append(("deploy", "Deploying TuxPanel to /opt/tuxpanel...", _deploy_app))
 
-    # 5. Install npm dependencies
-    steps.append(("npm-install", "Running npm ci...", _npm_install))
+    # 5. Install/Rebuild npm dependencies
+    steps.append(("npm-install", "Installing and rebuilding npm dependencies...", _npm_install))
 
     # 6. Build client
     steps.append(("build-client", "Building web UI...", _build_client))
@@ -221,9 +229,32 @@ def _plan_steps(
 
 # ── Individual step implementations ───────────────────────────────────────
 
+def _setup_nodesource(pm: PackageManager) -> None:
+    import urllib.request
+    try:
+        if pm == PackageManager.APT:
+            url = f"https://deb.nodesource.com/setup_{C.NODE_MIN_MAJOR}.x"
+            subprocess.run(["apt-get", "update", "-y"], check=True, stdout=subprocess.DEVNULL)
+            subprocess.run(["apt-get", "install", "-y", "curl"], check=True, stdout=subprocess.DEVNULL)
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req) as response:
+                script = response.read().decode('utf-8')
+            subprocess.run(["bash", "-c", script], check=True, env=dict(os.environ, DEBIAN_FRONTEND="noninteractive"))
+        elif pm == PackageManager.DNF:
+            url = f"https://rpm.nodesource.com/setup_{C.NODE_MIN_MAJOR}.x"
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req) as response:
+                script = response.read().decode('utf-8')
+            subprocess.run(["bash", "-c", script], check=True)
+    except Exception as e:
+        raise RuntimeError(f"Failed to setup NodeSource: {e}")
+
 def _check_nodejs() -> None:
-    r = subprocess.run(["node", "--version"], capture_output=True, text=True)
-    if r.returncode != 0:
+    try:
+        r = subprocess.run(["node", "--version"], capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError("Node.js is not installed.  Select the Node.js component or install it manually.")
+    except FileNotFoundError:
         raise RuntimeError("Node.js is not installed.  Select the Node.js component or install it manually.")
     version = r.stdout.strip().lstrip("v")
     major = int(version.split(".")[0])
@@ -263,9 +294,9 @@ def _deploy_app() -> None:
 
 
 def _npm_install() -> None:
-    if (C.SERVER_DIR / "node_modules").is_dir():
-        return  # Already bundled/built
-    run_streaming(["npm", "ci"], cwd=str(C.SERVER_DIR))
+    # Always ensure a valid dependency state. npm ci gives a clean slate
+    # and --omit=dev prevents installing huge typescript/eslint toolchains.
+    run_streaming(["npm", "ci", "--omit=dev", "--no-audit", "--no-fund"], cwd=str(C.SERVER_DIR))
 
 
 def _build_client() -> None:

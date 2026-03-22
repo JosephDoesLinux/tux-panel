@@ -167,10 +167,16 @@ router.post('/groups/:group/members', validate(groupMemberSchema), async (req: R
   }
 });
 
+import fs from 'fs';
+
 // ── GET /api/accounts/firewall ───────────────────────────────────────
 // Get firewalld status and zones
 router.get('/firewall', async (_req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!fs.existsSync('/usr/bin/firewall-cmd')) {
+      return res.json({ installed: false, running: false, zones: [] });
+    }
+
     const [stateRes, zonesRes] = await Promise.all([
       run('firewalldState').catch(() => ({ stdout: 'not running' })),
       run('firewalldZones').catch(() => ({ stdout: '' })),
@@ -193,7 +199,7 @@ router.get('/firewall', async (_req: Request, res: Response, next: NextFunction)
       }
     }
 
-    res.json({ running, zones });
+    res.json({ installed: true, running, zones });
   } catch (err) {
     next(err);
   }
@@ -202,6 +208,9 @@ router.get('/firewall', async (_req: Request, res: Response, next: NextFunction)
 // ── GET /api/accounts/firewall/rules ─────────────────────────────────
 router.get('/firewall/rules', async (_req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!fs.existsSync('/usr/bin/firewall-cmd')) {
+      return res.json({ rules: 'Firewall is not installed.' });
+    }
     const result = await run('firewalldListAll');
     res.json({ rules: result.stdout });
   } catch (err: any) {

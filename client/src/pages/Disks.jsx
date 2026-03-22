@@ -597,7 +597,12 @@ function StructureTab() {
           </div>
         </SectionHeader>
 
-        {subError && <div className="flex items-center gap-2 text-gb-yellow bg-gb-bg1 border-2 border-gb-yellow-dim p-3 mb-3 text-sm"><AlertCircle size={16} />{subError}</div>}
+        {subError && (
+          <div className="flex items-center gap-2 text-gb-fg3 bg-gb-bg1 border-2 border-gb-bg3 p-3 mb-3 text-sm">
+            <AlertCircle size={16} />
+            {subError === 'Not a btrfs filesystem' ? 'The selected mount point is not formatted as BTRFS. Subvolumes cannot be created.' : subError}
+          </div>
+        )}
 
         {subLoading ? <Spinner /> : (
           <div className="bg-gb-bg0 border-2 border-gb-bg2 overflow-x-auto">
@@ -642,7 +647,12 @@ function StructureTab() {
           </button>
         </SectionHeader>
 
-        {snapError && <div className="flex items-center gap-2 text-gb-yellow bg-gb-bg1 border-2 border-gb-yellow-dim p-3 mb-3 text-sm"><AlertCircle size={16} />{snapError}</div>}
+        {snapError && (
+          <div className="flex items-center gap-2 text-gb-fg3 bg-gb-bg1 border-2 border-gb-bg3 p-3 mb-3 text-sm">
+            <AlertCircle size={16} />
+            {snapError === 'Not a btrfs filesystem' ? 'The selected mount point is not formatted as BTRFS. Snapshots cannot be created.' : snapError}
+          </div>
+        )}
 
         {snapLoading ? <Spinner /> : (
           <div className="bg-gb-bg0 border-2 border-gb-bg2 overflow-x-auto">

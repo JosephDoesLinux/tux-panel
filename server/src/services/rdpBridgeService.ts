@@ -94,6 +94,8 @@ export interface BridgeOptions {
   username: string;
   password: string;
   geometry?: string;
+  secType?: string;
+  extraArgs?: string;
 }
 
 /**
@@ -107,7 +109,7 @@ export async function startBridge(opts: BridgeOptions): Promise<{
   vncPort: number;
   bridgeId: string;
 }> {
-  const { host, port, username, password, geometry = '1920x1080' } = opts;
+  const { host, port, username, password, geometry = '1920x1080', secType, extraArgs } = opts;
 
   // Check for existing bridge to the same target
   for (const [, session] of activeBridges) {
@@ -181,9 +183,28 @@ export async function startBridge(opts: BridgeOptions): Promise<{
     '-themes',
   ];
 
+  if (secType && secType !== 'default') {
+    xfreerdpArgs.push(`/sec:${secType}`);
+  } else {
+    // If not specified, rely on xfreerdp defaults or standard fallback
+    // We'll leave it out, letting xfreerdp negotiate
+  }
+  
+  // Also push standard graphics pipeline to try to help gnome-remote-desktop by default unless user overrides
+  if (!extraArgs?.includes('/gfx') && !extraArgs?.includes('/rfx')) {
+    xfreerdpArgs.push('/gfx:rfx');
+  }
+
+  if (extraArgs) {
+    // Split by spaces, honoring basic argument separation
+    const splitArgs = extraArgs.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+    splitArgs.forEach((a) => xfreerdpArgs.push(a.replace(/^"|"$/g, '')));
+  }
+
   const env = {
     ...process.env,
     DISPLAY: `:${display}`,
+    HOME: '/tmp',
   };
 
   const xfreerdpProcess = execFile('/usr/bin/xfreerdp', xfreerdpArgs, { env });
@@ -206,7 +227,12 @@ export async function startBridge(opts: BridgeOptions): Promise<{
 
   xfreerdpProcess.stderr?.on('data', (data: Buffer) => {
     const msg = data.toString().trim();
-    if (msg) logger.debug(`xfreerdp ${bridgeId}: ${msg}`);
+    if (msg) logger.error(`xfreerdp ${bridgeId} stderr: ${msg}`); // Changed to error to ensure it gets logged
+  });
+
+  xfreerdpProcess.stdout?.on('data', (data: Buffer) => {
+    const msg = data.toString().trim();
+    if (msg) logger.error(`xfreerdp ${bridgeId} stdout: ${msg}`); // Changed to error to ensure it gets logged
   });
 
   // ── Step 4: Register the session ──────────────────────────────────

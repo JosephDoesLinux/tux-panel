@@ -37,12 +37,10 @@ def generate_unit(
         StartLimitBurst=3
         StartLimitIntervalSec=60
 
-        # Hardening
+        # We purposely do not use ProtectSystem=true or PrivateTmp=true 
+        # so that the web terminal can manage the system (e.g. running apt, modifying /etc)
         NoNewPrivileges=false
-        ProtectSystem=true
         ProtectHome=false
-        ReadWritePaths={C.DATA_DIR} /tmp
-        PrivateTmp=true
 
         # Environment
         Environment=NODE_ENV=production

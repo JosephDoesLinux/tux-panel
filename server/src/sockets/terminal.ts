@@ -11,6 +11,7 @@
  */
 
 import os from 'os';
+import fs from 'fs';
 import logger from '../utils/logger';
 
 // node-pty is a native module — guard the require so the server can still
@@ -18,8 +19,8 @@ import logger from '../utils/logger';
 let pty: any;
 try {
   pty = require('node-pty');
-} catch (err) {
-  logger.warn('node-pty not available — terminal feature disabled.  Run `npm rebuild node-pty`.');
+} catch (err: any) {
+  logger.warn(`node-pty not available — terminal feature disabled.  Run \`npm rebuild node-pty\`. Error: ${err.message}`);
 }
 
 const DEFAULT_SHELL = process.env.SHELL || '/bin/bash';
@@ -42,8 +43,9 @@ function attachTerminalHandlers(socket: any) {
     }
 
     const username = socket.user?.username || socket.user?.sub;
+    const suBin = fs.existsSync('/usr/bin/su') ? '/usr/bin/su' : '/bin/su';
     const bin = username ? "/usr/bin/pkexec" : DEFAULT_SHELL;
-    const args = username ? ["/opt/tuxpanel/scripts/tuxpanel-priv-wrapper.sh", "/usr/bin/su", "-", username] : [];
+    const args = username ? ["/opt/tuxpanel/scripts/tuxpanel-priv-wrapper.sh", suBin, "-", username] : [];
 
     ptyProcess = pty.spawn(bin, args, {
       name: 'xterm-256color',

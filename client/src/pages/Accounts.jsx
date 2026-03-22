@@ -360,13 +360,13 @@ export default function Accounts() {
         <div>
           <div className="bg-gb-bg0 border-2 border-gb-bg2 p-5 mb-4">
             <div className="flex items-center gap-3 mb-3">
-              <Shield size={20} className={firewall?.running ? 'text-gb-green' : 'text-gb-red'} />
+              <Shield size={20} className={firewall?.installed ? (firewall?.running ? 'text-gb-green' : 'text-gb-red') : 'text-gb-fg4'} />
               <span className="text-sm font-semibold text-gb-fg3 uppercase tracking-wide">
                 firewalld Status
               </span>
-              <span className={`ml-auto flex items-center gap-1.5 text-sm font-bold uppercase ${firewall?.running ? 'text-gb-green' : 'text-gb-red'}`}>
-                <span className={`w-2.5 h-2.5 ${firewall?.running ? 'bg-gb-green' : 'bg-gb-red'}`} />
-                {firewall?.running ? 'Active' : 'Inactive'}
+              <span className={`ml-auto flex items-center gap-1.5 text-sm font-bold uppercase ${firewall?.installed ? (firewall?.running ? 'text-gb-green' : 'text-gb-red') : 'text-gb-fg4'}`}>
+                <span className={`w-2.5 h-2.5 ${firewall?.installed ? (firewall?.running ? 'bg-gb-green' : 'bg-gb-red') : 'bg-gb-fg4'}`} />
+                {firewall?.installed ? (firewall?.running ? 'Active' : 'Inactive') : 'Not Installed'}
               </span>
             </div>
             {firewall?.zones?.length > 0 && (

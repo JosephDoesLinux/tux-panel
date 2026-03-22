@@ -39,9 +39,15 @@ COMPONENTS: list[Component] = [
         id="tuxpanel-server",
         name="TuxPanel Server",
         category=Category.CORE,
-        description="Express + TypeScript backend, Socket.IO terminal multiplexer.",
+        description="Express + TypeScript backend, Socket.IO terminal multiplexer. (Compiles native node-pty)",
         required=True,
         size_mb=12,
+        packages={
+            "dnf": ["gcc-c++", "make", "python3", "pam-devel"],
+            "apt": ["g++", "make", "python3", "libpam0g-dev"],
+            "pacman": ["gcc", "make", "python3", "pam"],
+            "zypper": ["gcc-c++", "make", "python3", "pam-devel"],
+        },
     ),
     Component(
         id="tuxpanel-webui",

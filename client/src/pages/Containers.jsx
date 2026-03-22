@@ -347,18 +347,18 @@ export default function Containers() {
   const [logContainer, setLogContainer] = useState(null);
   const [showPullModal, setShowPullModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
-  const [unavailable, setUnavailable] = useState(false);
+  const [unavailable, setUnavailable] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
 
   const fetchContainers = useCallback(async () => {
     try {
       const res = await api.get('/api/containers/list');
       if (res.data.error) {
-        setUnavailable(true);
+        setUnavailable(res.data.error);
         setContainers([]);
       } else {
         setContainers(res.data.containers || []);
-        setUnavailable(false);
+        setUnavailable(null);
       }
     } catch (err) {
       setError(err.message);
@@ -406,12 +406,11 @@ export default function Containers() {
     return (
       <div>
         <h1 className="text-2xl font-black uppercase tracking-tight mb-6 text-gb-fg1">Containers</h1>
-        <div className="bg-gb-bg0 border-2 border-gb-bg2 p-8 text-center">
-          <Box size={48} className="mx-auto mb-4 text-gb-bg4" />
-          <h2 className="text-lg font-bold text-gb-fg2 mb-2">Docker Not Available</h2>
+        <div className="bg-gb-bg0 border-2 border-gb-bg2 p-8 text-center flex flex-col items-center">
+          <Box size={48} className="mb-4 text-gb-bg4 text-center mx-auto" />
+          <h2 className="text-lg font-bold text-gb-fg2 mb-2">{unavailable}</h2>
           <p className="text-sm text-gb-fg4 max-w-md mx-auto">
-            Install Docker to manage containers:{' '}
-            <code className="text-gb-aqua bg-gb-bg1 px-1.5 py-0.5">sudo dnf install docker</code>
+            {unavailable === 'Docker is not installed' ? 'Install Docker and start its daemon to manage containers.' : 'Ensure the Docker service (dockerd) is active.'}
           </p>
         </div>
       </div>

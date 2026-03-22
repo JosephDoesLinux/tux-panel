@@ -54,9 +54,11 @@ router.get('/subvolumes', async (req: Request, res: Response, next: NextFunction
 
     res.json({ subvolumes, mount });
   } catch (err: any) {
-    if (err.stderr?.includes('not a btrfs filesystem') || err.message?.includes('not a btrfs')) {
+    const errMsg = String(err.message || err);
+    const errStderr = String(err.stderr || '');
+    if (errStderr.includes('not a btrfs filesystem') || errMsg.includes('not a btrfs') || errMsg.includes('ENOENT') || errMsg.includes('not found')) {
       return res.json({ subvolumes: [], mount: req.query.mount || '/', error: 'Not a btrfs filesystem' });
-    } else if (err.message?.includes('a password is required') || err.message?.includes('Not authorized')) {
+    } else if (errMsg.includes('a password is required') || errMsg.includes('Not authorized')) {
       return res.json({ subvolumes: [], mount: req.query.mount || '/', error: 'Permission denied (Dev Mode)' });
     }
     next(err);
@@ -111,9 +113,11 @@ router.get('/snapshots', async (req: Request, res: Response, next: NextFunction)
 
     res.json({ snapshots, mount });
   } catch (err: any) {
-    if (err.stderr?.includes('not a btrfs filesystem') || err.message?.includes('not a btrfs')) {
+    const errMsg = String(err.message || err);
+    const errStderr = String(err.stderr || '');
+    if (errStderr.includes('not a btrfs filesystem') || errMsg.includes('not a btrfs') || errMsg.includes('ENOENT') || errMsg.includes('not found')) {
       return res.json({ snapshots: [], mount: req.query.mount || '/', error: 'Not a btrfs filesystem' });
-    } else if (err.message?.includes('a password is required') || err.message?.includes('Not authorized')) {
+    } else if (errMsg.includes('a password is required') || errMsg.includes('Not authorized')) {
       return res.json({ snapshots: [], mount: req.query.mount || '/', error: 'Permission denied (Dev Mode)' });
     }
     next(err);

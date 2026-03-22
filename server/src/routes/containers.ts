@@ -2,6 +2,7 @@
  * /api/containers — Docker container management
  */
 
+import fs from 'fs';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import validate from '../middleware/validate';
@@ -33,6 +34,10 @@ const pullImageSchema = z.object({
 // Returns all containers (running + stopped)
 router.get('/list', async (_req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!fs.existsSync('/usr/bin/docker')) {
+      return res.json({ containers: [], error: 'Docker is not installed' });
+    }
+
     const result = await run('dockerPs');
     try {
       const containers = parseNDJSON(result.stdout);
@@ -41,11 +46,14 @@ router.get('/list', async (_req: Request, res: Response, next: NextFunction) => 
       res.json({ containers: [], raw: result.stdout });
     }
   } catch (err: any) {
-    // Docker may not be installed
-    if (err.message.includes('not in the allow-list') || err.message.includes('ENOENT')) {
-      return res.json({ containers: [], error: 'Docker not available' });
+    const errMsg = String(err.message || err);
+    if (errMsg.includes('not in the allow-list') || errMsg.includes('ENOENT') || errMsg.includes('not found')) {
+      return res.json({ containers: [], error: 'Docker is not installed' });
     }
-    next(err);
+    if (errMsg.includes('daemon') || errMsg.includes('connect')) {
+      return res.json({ containers: [], error: 'Docker is not running' });
+    }
+    return res.json({ containers: [], error: 'Docker is not available' });
   }
 });
 
@@ -60,10 +68,11 @@ router.get('/images', async (_req: Request, res: Response, next: NextFunction) =
       res.json({ images: [], raw: result.stdout });
     }
   } catch (err: any) {
-    if (err.message.includes('not in the allow-list') || err.message.includes('ENOENT')) {
+    const errMsg = String(err.message || err);
+    if (errMsg.includes('not in the allow-list') || errMsg.includes('ENOENT') || errMsg.includes('not found')) {
       return res.json({ images: [], error: 'Docker not available' });
     }
-    next(err);
+    return res.json({ images: [], error: 'Docker not available' });
   }
 });
 
@@ -108,10 +117,11 @@ router.get('/stats', async (_req: Request, res: Response, next: NextFunction) =>
       res.json({ stats: [], raw: result.stdout });
     }
   } catch (err: any) {
-    if (err.message.includes('not in the allow-list') || err.message.includes('ENOENT')) {
+    const errMsg = String(err.message || err);
+    if (errMsg.includes('not in the allow-list') || errMsg.includes('ENOENT') || errMsg.includes('not found')) {
       return res.json({ stats: [], error: 'Docker not available' });
     }
-    next(err);
+    return res.json({ stats: [], error: 'Docker not available' });
   }
 });
 

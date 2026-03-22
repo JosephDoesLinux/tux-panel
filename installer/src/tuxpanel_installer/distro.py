@@ -82,12 +82,16 @@ def install_packages(pm: PackageManager, packages: list[str]) -> subprocess.Comp
     if not packages:
         return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
+    import os
+    env = os.environ.copy()
     cmd: list[str]
     match pm:
         case PackageManager.DNF:
             cmd = ["dnf", "install", "-y", "--setopt=install_weak_deps=False", *packages]
         case PackageManager.APT:
+            run_streaming(["apt-get", "update", "-y"])
             cmd = ["apt-get", "install", "-y", "--no-install-recommends", *packages]
+            env["DEBIAN_FRONTEND"] = "noninteractive"
         case PackageManager.PACMAN:
             cmd = ["pacman", "-S", "--noconfirm", "--needed", *packages]
         case PackageManager.ZYPPER:
@@ -95,7 +99,7 @@ def install_packages(pm: PackageManager, packages: list[str]) -> subprocess.Comp
         case _:
             raise RuntimeError(f"Unsupported package manager: {pm}")
 
-    return run_streaming(cmd)
+    return run_streaming(cmd, env=env)
 
 
 def remove_packages(pm: PackageManager, packages: list[str]) -> subprocess.CompletedProcess[str]:

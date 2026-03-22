@@ -47,6 +47,7 @@ PACKAGES=(
   make
   cmake
   python3
+  pam-devel
 
   # Guacamole (RDP proxy) — Phase 3
   guacd

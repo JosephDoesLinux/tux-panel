@@ -219,7 +219,7 @@ router.get('/vnc/sessions', async (_req: Request, res: Response, next: NextFunct
 // Returns: { vncHost, vncPort, bridgeId } — frontend connects via noVNC to the local VNC port.
 router.post('/rdp/connect', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { host, port, username, password, geometry } = req.body || {};
+    const { host, port, username, password, geometry, secType, extraArgs } = req.body || {};
 
     if (!host) {
       return res.status(400).json({ error: '"host" is required for RDP connections.' });
@@ -232,7 +232,7 @@ router.post('/rdp/connect', async (req: Request, res: Response, next: NextFuncti
     const rdpPort = port || 3389;
 
     logger.info(
-      `RDP bridge requested → ${host}:${rdpPort} as '${username}' [by: ${req.user?.sub || 'unknown'}]`
+      `RDP bridge requested → ${host}:${rdpPort} as '${username}' [sec:${secType || 'default'}] [args:${extraArgs || 'none'}] [by: ${req.user?.sub || 'unknown'}]`
     );
 
     const bridge = await startBridge({
@@ -241,6 +241,8 @@ router.post('/rdp/connect', async (req: Request, res: Response, next: NextFuncti
       username,
       password: password || '',
       geometry: geometry || '1920x1080',
+      secType,
+      extraArgs
     });
 
     res.json({

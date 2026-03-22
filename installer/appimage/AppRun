@@ -3,6 +3,6 @@
 # AppRun — entry point for the TuxPanel Installer AppImage.
 
 HERE="$(dirname "$(readlink -f "$0")")"
-export PYTHONPATH="${HERE}/usr/lib/python3/dist-packages:${PYTHONPATH}"
-export PATH="${HERE}/usr/bin:${PATH}"
-exec python3 -m tuxpanel_installer "$@"
+export PYTHONPATH="${HERE}/usr/lib/python3/dist-packages:${HERE}/opt/python/lib/python3.10/site-packages:${PYTHONPATH:-}"
+export PATH="${HERE}/opt/python/bin:${HERE}/usr/bin:${PATH}"
+exec "${HERE}/opt/python/bin/python3" -m tuxpanel_installer "$@"

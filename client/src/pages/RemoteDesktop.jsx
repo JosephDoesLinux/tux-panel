@@ -61,6 +61,8 @@ export default function RemoteDesktop() {
   const [pendingTarget, setPendingTarget] = useState(null);
   const [passwordInput, setPasswordInput] = useState('');
   const [usernameInput, setUsernameInput] = useState('');
+  const [rdpSec, setRdpSec] = useState('default');
+  const [rdpArgs, setRdpArgs] = useState('');
   const [activeBridgeId, setActiveBridgeId] = useState(null);
 
   /* ── Connection hook ─────────────────────────────────────────── */
@@ -192,6 +194,8 @@ export default function RemoteDesktop() {
           port: pendingTarget.port,
           username: usernameInput,
           password: passwordInput,
+          secType: rdpSec,
+          extraArgs: rdpArgs
         });
         const { vncPort, bridgeId } = res.data;
         setActiveBridgeId(bridgeId);
@@ -495,6 +499,39 @@ export default function RemoteDesktop() {
                   placeholder="Leave blank if none"
                 />
               </div>
+
+              {pendingTarget?.protocol === 'rdp' && (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gb-fg3 uppercase mb-1">
+                      <Settings size={10} className="inline mr-1" /> Security / auth
+                    </label>
+                    <select
+                      value={rdpSec}
+                      onChange={(e) => setRdpSec(e.target.value)}
+                      className="w-full px-2 py-1.5 bg-gb-bg1 border-2 border-gb-bg3 text-gb-fg1 text-xs focus:border-gb-aqua outline-none transition-colors"
+                    >
+                      <option value="default">Default / Negotiate</option>
+                      <option value="tls">TLS Only (/sec:tls)</option>
+                      <option value="nla">NLA Only (/sec:nla)</option>
+                      <option value="rdp">RDP Standard (/sec:rdp)</option>
+                      <option value="ext">Extended (/sec:ext)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gb-fg3 uppercase mb-1">
+                      Additional xfreerdp Args
+                    </label>
+                    <input
+                      type="text"
+                      value={rdpArgs}
+                      onChange={(e) => setRdpArgs(e.target.value)}
+                      className="w-full px-3 py-2 bg-gb-bg1 border-2 border-gb-bg3 text-gb-fg1 text-sm focus:border-gb-aqua outline-none transition-colors placeholder:text-gb-bg4"
+                      placeholder="e.g. /gfx:avc /network:lan"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex gap-2 px-4 py-3 border-t-2 border-gb-bg2">

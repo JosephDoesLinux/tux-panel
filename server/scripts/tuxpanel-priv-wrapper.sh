@@ -79,6 +79,9 @@ case "$COMMAND" in
   "/opt/tuxpanel/scripts/tuxpanel-edit-conf.sh")
     exec /opt/tuxpanel/scripts/tuxpanel-edit-conf.sh "$@"
     ;;
+  "/usr/bin/su"|"/bin/su")
+    exec "$COMMAND" "$@"
+    ;;
   "auth")
     # Execute node instead of python for PAM fallback, avoiding python-pam dependencies
     exec /usr/bin/node -e "

@@ -76,8 +76,8 @@ npm run build
 popd
 
 echo "==> Bundling repo assets for standalone execution..."
-rsync -a ../server "${APPDIR}/usr/lib/"
-rsync -a ../client "${APPDIR}/usr/lib/"
+rsync -a --exclude='.env' --exclude='node_modules' ../server "${APPDIR}/usr/lib/"
+rsync -a --exclude='.env' --exclude='node_modules' ../client "${APPDIR}/usr/lib/"
 # Remove any git directories that snuck in
 find "${APPDIR}/usr/lib/server" "${APPDIR}/usr/lib/client" -name ".git" -type d -exec rm -rf {} +
 
